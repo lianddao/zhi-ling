@@ -1,0 +1,72 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Repository.ZhiLingManage;
+@using PlanExecut.Web.Areas.ZhiLingManage.DTO;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+
+@{
+    ViewBag.Title = "指令在某日期的运行状态";
+    Layout = "~/Views/Shared/_Default.cshtml";
+
+    string 日期 = Request.Params ["Day"] == null ? null : Request.Params ["Day"];
+    string 指令id = Request.Params ["ZhiLingId"] == null ? null : Request.Params ["ZhiLingId"];
+
+    ZhiLingService service = new ZhiLingService();
+    图表数据点DTO dto = service.获取某指令在指定日期的实际数据(int.Parse(指令id), 日期);
+}
+
+
+
+
+<div id="container"></div>
+
+
+
+
+
+
+<script>
+
+    var info = @Html.Raw(dto.ToJson())
+
+    Highcharts.setOptions({
+        global: {
+            useUTC:false
+        }
+    })
+
+    Highcharts.chart('container', {
+        credits: {
+            enabled: false
+        },
+        title: {
+            text: info.name
+        },
+        tooltip: {
+            xDateFormat: '%Y-%m-%d %H:%M',
+        },
+        xAxis: {
+            type: 'datetime',
+            crosshairs: true,
+            dateTimeLabelFormats: {
+                hour: '%H',
+            }
+        },
+        yAxis: {
+            title: {
+                text: null
+            }
+        },
+        series: [info]
+    })
+
+</script>

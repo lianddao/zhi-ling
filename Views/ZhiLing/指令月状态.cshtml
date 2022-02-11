@@ -1,0 +1,153 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Repository.ZhiLingManage;
+@using PlanExecut.Web.Areas.ZhiLingManage.DTO;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+
+@{
+    ViewBag.Title = "指令月状态";
+    Layout = "~/Views/Shared/_Default.cshtml";
+
+    string 月份 = Request.Params ["Month"] == null ? DateTime.Now.ToString("yyyy-MM") : Request.Params ["Month"];
+
+    ZhiLingService service = new ZhiLingService();
+    月图表DTO dto = service.指令月状态(月份);
+}
+
+
+
+
+<div class="container-fluid">
+
+    <!-- 搜索层 -->
+    <script src="~/Content/lib/My97DatePicker/WdatePicker.js"></script>
+    <div style="margin:1em 0; position:relative;">
+        <form method="get" action="/ZhiLingManage/ZhiLing/指令月状态">
+            <input type="text" name="Month" onclick="WdatePicker({skin:'whyGreen',dateFmt:'yyyy-MM'})" class="Wdate" readonly autocomplete="off" style="width:6em;" placeholder="月份" value="@月份" />
+            <button id="btnSearch" class="fa fa-search" style="height:2em;"> 查询</button>
+        </form>
+    </div>
+    <script>
+        $(function () {
+            $("#btnSearch").click(function () {
+                var btn = $(this)
+                btn.removeClass("fa-search").addClass("fa-spinner")
+                btn.text(" 查询中...")
+            })
+        })
+    </script>
+
+
+
+
+
+
+
+    <!-- 图表层 -->
+    <div id="container"></div>
+
+</div>
+
+
+
+
+
+<!-- 指定日期的图表弹出层 -->
+<script>
+    var 指定日期的图表弹出层
+
+    $(function () {
+        指定日期的图表弹出层 = new bootstrap.Modal(document.getElementById('指定日期的图表弹出层'), {
+            keyboard: false
+        })
+    })
+</script>
+<div class="modal fade" id="指定日期的图表弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <iframe id="iframe1" style="width:100%; height:50vh; overflow:auto;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+<script>
+
+    var info = @Html.Raw(dto.ToJson())
+
+    Highcharts.setOptions({
+        global: {
+            useUTC: false
+        }
+    })
+
+
+    Highcharts.chart('container', {
+        credits: {
+            enabled: false
+        },
+        title: {
+            text: "「"+ info.Month + "」指令月汇总"
+        },
+        xAxis: {
+            type: 'datetime',
+            crosshairs: true
+        },
+        yAxis: {
+            title: {
+                text: null
+            }
+        },
+        chart: {
+            styleMode:true
+        },
+        tooltip: {
+            shared: true,
+            xDateFormat: '%Y-%m-%d',
+        },
+        series: info.series,
+        plotOptions: {
+            series: {
+                events: {
+                    click: function (event) {
+                        var name = this.name
+                        var target= $.grep(info.series, function (n,i) {
+                            return n.name==name
+                        })[0]
+                        var data = target.data
+
+                        var time = event.point.x
+                        var finded = $.grep(data, function (n, i) {
+                            return n[0] == time
+                        })[0]
+
+                        var 日期 = finded[2]
+                        var 指令id = finded[3]
+                        $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/指令在某日期的运行状态?Day=" + 日期 + "&ZhiLingId=" + 指令id)
+                        指定日期的图表弹出层.show()
+                    }
+                }
+            }
+        }
+    })
+
+</script>

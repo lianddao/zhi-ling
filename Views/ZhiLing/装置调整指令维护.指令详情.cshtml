@@ -1,0 +1,167 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>计划值指令维护.右侧点位号内容</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        input, textarea {
+            width: 100%;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+
+    var zhiLingId = Request.QueryString ["zhiLingId"];
+
+    UserZhiLing obj = service.指定id的用户指令(zhiLingId);
+
+    var 单位数据 = service.DanWei_Service1_所有单位数据();
+}
+
+
+
+<body>
+
+    <form action="/ZhiLingManage/ZhiLing/装置调整指令_指令详情_保存?zhiLingId=@obj.ID" method="post">
+        <input type="hidden" name="ID" value="@obj.ID" />
+        <input type="hidden" name="DeviceUnitCode" value="@obj.DeviceUnitCode" />
+        <input type="hidden" name="MaterialCode" value="@obj.MaterialCode" />
+        <input type="hidden" name="Remark" value="@obj.Remark" />
+        <input type="hidden" name="Type" value="@obj.Type" />
+
+        <table class="table" style="table-layout:fixed">
+            <tr>
+                <th style="width:10em;">装置单元</th>
+                <th>
+                    @obj.DeviceUnitCode
+                </th>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>
+                    @obj.TypeName
+                </td>
+            </tr>
+            <tr>
+                <td>指令名称</td>
+                <td>
+                    <input type="text" id="txtName" name="Name" value="@obj.Name" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>指标名(点位名)</td>
+                <td>
+                    <input type="text" id="txtPointNumName" name="PointNumName" value="@obj.PointNumName" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>点位号</td>
+                <td>
+                    <textarea id="txtPointNumOrValue" name="PointNumOrValue">@obj.PointNumOrValue</textarea>
+                </td>
+            </tr>
+            <tr>
+                <td>默认计划值</td>
+                <td>
+                    <input type="text" id="txtPlanValue" name="PlanValue" value="@obj.PlanValue" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>默认上下限值</td>
+                <td>
+                    <input type="text" id="txtShangXianXian" name="ShangXiaXian" value="@obj.ShangXiaXian" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>默认下限值</td>
+                <td>
+                    <input type="text" id="txtLowValue" name="LowValue" value="@obj.LowValue" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>默认上限值</td>
+                <td>
+                    <input type="text" id="txtUpValue" name="UpValue" value="@obj.UpValue" autocomplete="off">
+                </td>
+            </tr>
+            <tr>
+                <td>单位</td>
+                <td>
+                    <select id="selUnit" name="UnitId">
+                        <option value="0">-</option>
+                        @{
+                            foreach (var item in 单位数据) {
+                                if (item.F_Id == ( obj.UnitId == null ? 0 : obj.UnitId.Value )) {
+                                    <option value="@item.F_Id" selected>@item.Unit</option>
+                                }
+                                else {
+                                    <option value="@item.F_Id">@item.Unit</option>
+                                }
+                            }
+                        }
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>排序号</td>
+                <td>
+                    <input type="number" id="txtSort" name="Sort" value="@obj.Sort" autocomplete="off" min="0" style="width:5em;">
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    @{
+                        if (obj.IsEnable) {
+                            <label>
+                                <input type="radio" name="Enable" value="1" checked />
+                                启用
+                            </label>
+                            <label>
+                                <input type="radio" name="Enable" value="0" />
+                                禁用
+                            </label>
+                        }
+                        else {
+                            <label>
+                                <input type="radio" name="Enable" value="1" />
+                                启用
+                            </label>
+                            <label>
+                                <input type="radio" name="Enable" value="0" checked />
+                                禁用
+                            </label>
+                        }
+                    }
+                </td>
+            </tr>
+        </table>
+
+
+
+        <button id="btnSave" data-id="@obj.ID" style="font-size:1.2em; padding:0 1.2em;">保存</button>
+    </form>
+
+
+
+
+</body>
+</html>

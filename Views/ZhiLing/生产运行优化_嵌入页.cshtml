@@ -1,0 +1,217 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>生产运行优化_嵌入页</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        textarea {
+            font-family: 'SimSun'
+        }
+
+        .box {
+            position: relative;
+            z-index: 1;
+            border: dashed 1px;
+            border-radius: 0.5em;
+            padding: 2em;
+        }
+    </style>
+</head>
+
+
+@{
+    ZhiLingService service = new ZhiLingService();
+    指令运行状态VO vo = service.生产运行优化_获取特定的实际数据(null);
+    List<ZhiLingInfo> 已下达的指令数据 = vo.生产运行优化.已下达的指令数据;
+    string 指令字符串 = vo.生产运行优化.指令字符串;
+
+    string default_start_day;
+    string default_end_day;
+    if (已下达的指令数据.Count == 0) {
+        default_start_day = DateTime.Now.Date.ToDateString();
+        default_end_day = DateTime.Now.AddDays(7).ToDateString();
+    }
+    else {
+        default_start_day = 已下达的指令数据 [0].StartDay;
+        default_end_day = 已下达的指令数据 [0].EndDay;
+    }
+}
+
+
+<body>
+
+
+
+
+
+    <div style="position:relative;">
+
+        @{
+            if (已下达的指令数据.Count > 0) {
+                <button type="button" class="fa fa-plus-circle" title="新增生产运行优化指令" id="btnSelectOrder" action-name=""
+                        style="position:absolute; z-index:2; border-radius:0.5em 0;"></button>
+            }
+        }
+
+
+        @{
+            string 新增层的显示状态 = null;
+            string 修改层的显示状态 = null;
+
+            if (已下达的指令数据.Count > 0) {
+                新增层的显示状态 = "display:none;";
+                修改层的显示状态 = string.Empty;
+            }
+            else {
+                新增层的显示状态 = string.Empty;
+                修改层的显示状态 = "display:none;";
+            }
+        }
+
+
+        <div id="divNew" class="box" style="@新增层的显示状态">
+            <textarea id="txtNew" style="width: 100%; height: 20em; " placeholder="在这里填写[生产运行优化指令]"></textarea>
+            <i style="color:#888; font-size:x-small; " title="新增文本描述指令">-新增[生产运行优化指令]</i>
+        </div>
+
+
+        <div id="divUpdate" class="box" style="@修改层的显示状态">
+            <div style="border-bottom:dotted 2px">
+                <button type="button" class="fa fa-bar-chart" id="btnState" title="查看指令状态" style="position:absolute;right:2em; top:2em; margin:2px;"></button>
+            </div>
+            <textarea style="width:100%; height:20em; border:none; background-color:white;" disabled>@指令字符串</textarea>
+            <i style="color:#888; font-size:x-small; " title="@vo.RootMesId → @vo.ZhiLingTitle">@vo.ZhiLingTitle</i>
+        </div>
+    </div>
+
+
+
+
+
+    <script>
+        var waitTimer = null
+
+        var $divNew, $divUpdate
+        var $newWindow, $stateWindow
+
+            $(function () {
+
+                $divNew = $("#divNew")
+                $divUpdate = $("#divUpdate")
+
+                $("#btnSelectOrder").click(function () {
+                    var action_name = $(this).attr("action-name")
+
+                    if (action_name.length == 0) {
+                        // 首次
+                        console.log("弹出新增")
+                        $divNew.show()
+                        $divUpdate.hide()
+                        $(this).text(" 取消新增")
+                        $(this).attr("title", "取消新增")
+                        $(this).attr("action-name", "adding")
+                        $(this).removeClass("fa-plus-circle").addClass("fa-undo")
+                    }
+                    else if (action_name == "adding") {
+                        // 取消新增
+                        console.log("取消新增")
+                        $divNew.hide()
+                        $divUpdate.show()
+                        $(this).text("")
+                        $(this).attr("title", "新增装置调整指令")
+                        $(this).attr("action-name", "")
+                        $(this).removeClass("fa-undo").addClass("fa-plus-circle")
+
+                        // 在点击'取消新增'按钮后,将临时表对应的行删除
+                        $.ajax({
+                            type: "post",
+                            contentType: "application/json",
+                            url: "/ZhiLingManage/ZhiLing/生产运行优化_点击取消新增按钮后_将临时表对应的行删除",
+                            success: function (response) {
+                            }
+                        })
+
+                        if ($newWindow == null) {
+                        } else {
+                            $newWindow.close()
+                        }
+                    }
+                })
+
+
+                // 文本框值失去焦点后,保存到[YuZhiLingTemp]
+                $("body").on("blur", "#txtNew", function () {
+                    clearInterval(waitTimer)
+
+                    var v = $.trim(this.value)
+                    var st = '@default_start_day'
+                    var et = '@default_end_day'
+
+                    if (v.length == 0) {
+                        // 清空临时表对应的指令
+                        $.ajax({
+                            type: "post",
+                            contentType: "application/json",
+                            url: "/ZhiLingManage/ZhiLing/生产运行优化_点击取消新增按钮后_将临时表对应的行删除",  // 使用该方法可删除
+                            success: function (response) {
+                            }
+                        })
+                        return false
+                    }
+
+                    $.ajax({
+                        type: "post",
+                        contentType: "application/json",
+                        url: "/ZhiLingManage/ZhiLing/QuickSaveTextOrderTo_YuZhiLingTemp",
+                        data: JSON.stringify({ zhiLingText: v, start_day: st, end_day: et, userConfigId: 0 }),
+                        success: function (response) {
+                            if (response == 1) {
+                                txtNew.最近保存的值 = v
+
+
+                                waitTimer = setInterval(function () {
+                                    console.log("生产运行优化_嵌入页:等待帆软报表点击[提交]按钮")
+                                    $.ajax({
+                                        type: "post",
+                                        contentType: "application/json",
+                                        url: "/ZhiLingManage/ZhiLing/生产运行优化_等候指令的刷新通知",
+                                        success: function (response) {
+                                            if (response == 1) {
+                                                console.log("生产运行优化_嵌入页:等待成功,刷新页面")
+                                                clearInterval(waitTimer)
+                                                location.reload()
+                                            }
+                                        }
+                                    })
+                                }, 3000)
+
+                            }
+                        }
+                    })
+                })
+
+
+                $("#btnState").click(function () {
+                    $stateWindow = open('/ZhiLingManage/ZhiLing/生产运行优化_指令状态弹出页', "生产运行优化_指令状态弹出页", "location=no")
+                })
+            })
+
+    </script>
+
+</body>
+</html>

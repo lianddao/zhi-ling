@@ -1,0 +1,335 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+
+@{
+    ViewBag.Title = "生产运行优化_指令状态弹出页";
+    Layout = "~/Views/Shared/_Default.cshtml";
+
+    string 运行日期 = Request.Params ["RunningDay"] == null ? string.Empty : Request.Params ["RunningDay"];
+
+    ZhiLingService service = new ZhiLingService();
+    List<指令运行状态VO> all = service.生产运行优化_获取特定的实际数据_并按MESID分组(运行日期);
+
+    List<ZhiLingInfo> 表格的所有指令 = new List<ZhiLingInfo>();
+    foreach (var one in all) {
+        表格的所有指令.AddRange(one.装置调整.已下达的指令数据);
+        表格的所有指令.AddRange(one.主要控制指标.已下达的指令数据);
+        表格的所有指令.AddRange(one.生产运行优化.已下达的指令数据);
+    }
+}
+
+
+<style>
+    body {
+        font-size: 12px;
+    }
+
+    .table {
+        font-size: 12px;
+    }
+
+        .table tr td:first-child {
+            color: #888;
+            font-style: italic;
+        }
+
+    .start-time, .end-time {
+        width: 6.5em;
+    }
+
+    .real-value {
+        width: 100%;
+        box-shadow: 1px 1px 1px #888;
+    }
+
+    .edit-head {
+        display: none;
+    }
+
+    .edit-row, .append-row {
+        display: none;
+    }
+
+    .fa-gear {
+        cursor: pointer;
+    }
+
+    .data-head th, .edit-head th {
+        position: sticky;
+        top: 0;
+    }
+
+    .append-row textarea {
+        width: 100%;
+        height: 12em;
+    }
+
+    .required-field {
+        border: solid red;
+    }
+</style>
+
+
+
+@{
+    if (运行日期.Length == 0) {
+        // 从帆软报表打开对应的指令,不需要搜索功能
+    }
+    else {
+        <!-- ----------------------------------- 搜索层 ----------------------------------- -->
+        <div style="margin:1em 0; position:relative;">
+            <form method="get" action="/ZhiLingManage/ZhiLing/生产运行优化_指令状态弹出页">
+                <input type="text" class="" style="width:10em;" name="RunningDay" id="date_timepicker" autocomplete="off" placeholder="运行日期" value="@运行日期" />
+                <button class="fa fa-search"> 搜索</button>
+            </form>
+        </div>
+        <link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+        <script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+        <script type="text/javascript">
+            $(function () {
+                jQuery.datetimepicker.setLocale('ch')
+
+                jQuery('#date_timepicker').datetimepicker({
+                    format: 'Y-m-d',
+                    timepicker: false
+                })
+            })
+        </script>
+    }
+}
+
+
+
+
+
+
+
+
+@{
+    foreach (var item in all) {
+        string 指令字符串 = item.生产运行优化.指令字符串;
+
+        var 参考对象 = item.生产运行优化.已下达的指令数据.Count == 0 ? null : item.生产运行优化.已下达的指令数据 [0];
+        string 开始日期 = 参考对象.StartDay;
+        string 结束日期 = 参考对象.EndDay;
+
+        <fieldset style="position:relative;">
+            <legend>
+                @item.ZhiLingTitle
+                <label style="font-size:0.5em; color:#666; margin-left:1em;">「 指令状态: <label class="order-state" data-state="@item.StateText">@item.StateText</label> 」</label>
+            </legend>
+            <table class="table" style="table-layout:fixed;">
+                <thead style="position:sticky; top:0; background-color:white;">
+                    <tr class="data-head">
+                        <th style="width:3em;">#</th>
+                        <th>指令内容</th>
+                        <th style="width:25em;">运行结果</th>
+                        <th style="width:17em">执行日期</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        int row_num = 1;
+                        foreach (var one in item.生产运行优化.已下达的指令数据) {
+                            <tr data-id="@one.ID">
+                                <td title="@one.ID">
+                                    @(row_num++)
+                                </td>
+                                <td>
+                                    @one.OrderContent
+                                </td>
+                                <td>
+                                    <label>@one.OrderContentRealValue</label>
+                                    <i class="fa fa-pencil btn-set-result"></i>
+                                </td>
+                                <td>
+                                    @one.OrderStartTime.ToDateString() <i class="fa fa-exchange"></i> @one.OrderEndTime.ToDateString()
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+
+            @{
+                if (item.生产运行优化.已下达的指令数据.Count > 0) {
+                    <div class="append-row" style="position:relative; height:21em; ">
+                        <div style="position:absolute; left:0; right:52vw; display:inline-block; ">
+                            <h6>旧指令:</h6>
+                            <div>
+                                @开始日期 <i class="fa fa-exchange" style="color:#aaa; margin:0 0.2em;"></i> @结束日期
+                            </div>
+                            <div>
+                                <textarea style="height:2em;" readonly>@item.ZhiLingTitle</textarea>
+                            </div>
+                            <textarea placeholder="旧指令" readonly>@指令字符串</textarea>
+                        </div>
+
+                        <div style="position:absolute; left:46vw; right:0; display:inline-block; ">
+                            <i class="fa fa-arrow-right" style="position:absolute; left:0.7em; top:11em;"></i>
+
+                            <div style="position:absolute; left:2em; right:0;">
+                                <form>
+                                    <h6>修改后指令:</h6>
+                                    <div>
+                                        <i class="fa fa-info-circle" title="采用相同的指令日期"></i>
+                                        @开始日期 <i class="fa fa-exchange" style="color:#aaa; margin:0 0.2em;"></i> @结束日期
+                                        <button type="reset" style="display:none">reset</button>
+                                    </div>
+
+                                    <div>
+                                        <textarea class="txt-order-title" placeholder="请填写指令的标题" style="height: 2em; box-shadow: -3px 3px 3px #888;"></textarea>
+                                    </div>
+
+                                    <div>
+                                        <textarea class="textarea-append" placeholder="请填写指令的内容" style="box-shadow:-3px 3px 3px #888;"></textarea>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <button type="button" class="fa fa-pencil btn-update"> 修改,补充指令</button>
+                    <div style="display:none; position:absolute; left:48vw; bottom:0.5em;">
+                        <button class="fa fa-paper-plane btn-update-save" root-mes-id="@item.RootMesId"> 作为新指令发送到MES</button>
+                        <button class="fa fa-ban btn-update-cancel"> 取消</button>
+                    </div>
+                }
+            }
+        </fieldset>
+    }
+}
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+
+    var 表格数据 = @Html.Raw(表格的所有指令.ToJson())
+
+
+    $(function () {
+
+        // 设置运行结果
+        $(".btn-set-result").click(function () {
+            var lbl = $(this).prev()
+            var id = $(this).parents("tr").attr("data-id")
+            var one = $.grep(表格数据, function (n) {
+                return n.ID == id
+            })[0]
+
+
+            var realValue = prompt("设置「" + one.OrderContent + "」的运行结果:", one.OrderContentRealValue)
+
+            if (realValue == null) {
+                return
+            }
+
+            one.OrderContentRealValue = realValue
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/生产运行优化_设置文本描述指令的执行结果",
+                data: JSON.stringify({ one: one }),
+                success: function (response) {
+                    lbl.text(realValue)
+                }
+            })
+        })
+
+
+
+
+        // 切换到修改界面
+        $(".btn-update").click(function () {
+            var append_row = $(this).prev()
+            var append_btn = $(this).next()
+            var btn_update = $(this)
+
+            append_row.show()
+            append_btn.show();
+
+            btn_update.hide()
+        })
+
+
+        // 切换到只读界面
+        $(".btn-update-cancel").click(function () {
+            var append_row = $(this).parent().prev().prev()
+            var append_btn = $(this).parent()
+            var btn_update = $(this).parent().prev()
+
+            append_row.hide()
+            btn_update.show()
+
+            append_btn.hide()
+
+            // 清空已填写的内容
+            var btnReset = append_row.find(":reset")
+            btnReset.click()
+        })
+
+
+        // 追加新的指令
+        $(".btn-update-save").click(function () {
+            var root_mesid = $(this).attr("root-mes-id")
+
+            var append_row = $(this).parent().prev().prev()
+            var txt_order_title = append_row.find(".txt-order-title")
+            var textarea_append = append_row.find(".textarea-append")
+            var 追加的标题 = $.trim(txt_order_title.val())
+            var 追加的指令 = $.trim(textarea_append.val())
+
+            if (追加的标题.length == 0) {
+                txt_order_title.addClass('required-field')
+                txt_order_title.focus()
+                alert('请填写指令的标题')
+                return false
+            }
+            else {
+                txt_order_title.removeClass('required-field')
+            }
+
+            if (追加的指令.length == 0) {
+                textarea_append.addClass('required-field')
+                textarea_append.focus()
+                alert('请填写指令的内容')
+                return false
+            }
+            else {
+                textarea_append.removeClass('required-field')
+            }
+
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/生产运行优化_作为新指令发送到MES",
+                data: JSON.stringify({ root_mesid: root_mesid, newZhiLingText: 追加的指令, order_title: 追加的标题 }),
+                success: function (response) {
+                    console.log(response)
+                }
+            })
+        })
+
+
+
+    })
+</script>

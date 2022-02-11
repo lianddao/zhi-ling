@@ -1,0 +1,220 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>主要控制指标指令维护</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        table {
+            font-size: small;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        fieldset {
+            padding: 2em 1px;
+        }
+
+        legend {
+            font-size: xx-small;
+        }
+
+        .edit-row {
+            border: dashed 1px #ff6a00;
+            display: none;
+        }
+
+        td.longtext {
+            word-wrap: break-word;
+        }
+
+        .header {
+            position: -webkit-sticky;
+            position: sticky;
+            background-color: white !important;
+            top: 0;
+        }
+
+        .clicked {
+            border-left: solid;
+        }
+
+        .disabled {
+            color: #aaa;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+
+
+    var all = service.主要控制指标指令维护();
+    var groups = all.GroupBy(i => i.DeviceUnitCode).Select(j => j.Key).ToList();
+
+
+    var defaultDanYuan = Request.Params ["DanYuan"];
+    if (defaultDanYuan == null) {
+        defaultDanYuan = groups.First();
+    }
+
+
+    var 左侧数据 = all.Where(i => i.DeviceUnitCode == defaultDanYuan).OrderByDescending(j => j.Enable).ToList();
+
+}
+
+
+
+<body>
+
+
+
+    <div>
+
+        <!-- 1. 左侧: 指令名称列表 -->
+        <div style="position: fixed; top:1em; bottom:1em; left:1em; width:19em; overflow: auto;">
+            <table id="tableDanYuan" class="table" style="table-layout:fixed;">
+                <tr>
+                    <td style="width:70%">
+                        <select id="selDanYuan" class="form-select">
+                            @{
+                                foreach (var group in groups) {
+                                    <option value="@group" selected="@(group == defaultDanYuan)">@group</option>
+                                }
+                            }
+                        </select>
+                    </td>
+                    <td>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <input type="hidden" value="@defaultDanYuan" />
+                        <input type="text" placeholder="新增「主要控制指标指令」名称" style="width:100%;" />
+                    </td>
+                    <td style="text-align:right;">
+                        <button type="button" class="fa fa-push" style="width:100%" id="btnAddZhiLing"> 新增</button>
+                    </td>
+                </tr>
+                @{
+                    foreach (var one in 左侧数据) {
+                        <tr title="@one.ToJson()">
+                            <td class="danyuan-row @(one.IsEnable?"":"disabled")" data-id="@one.ID">
+                                @one.Name
+                            </td>
+                            <td style="text-align:right;">
+                                <button type="button" class="btn-delete fa fa-trash-o" data-id="@one.ID" data-title="@one.Name"></button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </table>
+        </div>
+
+
+
+
+
+
+
+
+        <!-- 2. 右侧: 单个指令的详情 -->
+        <div style="position: fixed; top: 1em; right: 1em; bottom: 1em; left: 21em; padding-left: 1em; border-left: dashed 1px #333; overflow: auto;">
+            <iframe id="iframe1" style="width:100%; height:100%;"></iframe>
+        </div>
+
+
+
+
+    </div>
+
+
+
+
+    <script>
+        var ZhiLingJsonData = @Html.Raw(左侧数据.ToJson());
+
+
+        $(function () {
+            $("#selDanYuan").change(function () {
+                location.href = "/ZhiLingManage/ZhiLing/主要控制指标指令维护?DanYuan=" + this.value
+            })
+
+            $(".danyuan-row").click(function () {
+                var zhiLingId = $(this).attr("data-id")
+                $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/主要控制指标指令_指令详情?zhiLingId=" + zhiLingId)
+
+                $(".clicked").removeClass('clicked')
+                $(this).addClass('clicked')
+            })
+
+
+            $("#btnAddZhiLing").click(function () {
+                var textbox = $(this).parent().prev().find(":text")
+                var orderName = textbox.val()
+                var deviceCode = textbox.siblings(":hidden").val()
+
+                if (orderName.length == 0) {
+                    textbox.focus()
+                    return
+                }
+
+                $.ajax({
+                    type: 'post',
+                    url: '/ZhiLingManage/ZhiLing/指令维护_新增自定义_主要控制指标指令',
+                    data: { DeviceUnitCode: deviceCode, Name: orderName },
+                    success: function () {
+                        location.reload()
+                    }
+                })
+            })
+
+
+            $(".btn-delete").click(function () {
+                var id = $(this).attr("data-id")
+                var name = $(this).attr("data-title")
+                if (confirm('确定删除「' + name + '」吗？')) {
+                    $.ajax({
+                        type: 'post',
+                        url: '/ZhiLingManage/ZhiLing/指令维护_删除一个指令',
+                        data: { ID: id },
+                        success: function () {
+                            location.reload()
+                        }
+                    })
+                }
+            })
+
+
+            // 自动点击第一行
+            var $first = $(".danyuan-row").first()
+            $first.addClass('clicked')
+            $first.click()
+
+        })
+    </script>
+</body>
+</html>
+
+
+
+
+
+

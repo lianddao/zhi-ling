@@ -1,0 +1,243 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>新建文本描述指令In帆软报表</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        table {
+            font-size: 13px;
+        }
+
+        .start-time, .end-time {
+            width: 6.5em;
+        }
+
+        input[type=text] {
+            font-size: 12px;
+            width: 8em;
+        }
+
+        textarea {
+            width: 30em;
+        }
+
+        .no-use {
+            color: #888;
+            text-decoration: none;
+            cursor: no-drop;
+        }
+
+            .no-use:hover {
+                color: #888;
+            }
+    </style>
+
+</head>
+
+
+@{
+
+    var service = new ZhiLingService();
+    var default_start_day = DateTime.Now.Date.ToDateString();
+    var default_end_day = DateTime.Now.AddDays(7).ToDateString();
+    default_start_day = "2021-09-01";
+    default_end_day = "2021-09-03";
+
+}
+
+
+
+@*
+
+    1. 新建文本描述指令In帆软报表
+    2. 在文本框中填入值时, [设置人员配置方案]按钮变为可用
+    3. 点击[设置人员配置方案]按钮,保存到[YuZhiLingTemp]
+    4. 3完成后,弹出设置日期和人员方案
+*@
+
+
+<body>
+    <div style="background-color: #ffffe2; border: dashed 1px; border-radius: 0.5em; padding: 1em;">
+        <div id="divRiQi" style="background-color:yellow">
+            <button type="button" class="fa fa-users" id="btnUserConfig" disabled title="填入文本内容后,会自动设置默认的人员配置方案,使用这个按钮可更改为新的人员配置方案"> 设置日期和人员配置方案</button>
+        </div>
+        <textarea id="txtNew" style="width:100%; height:20em;" placeholder="1. 填写文本描述指令&#013;2. 设置日期和人员配置方案"></textarea>
+        <script>
+            var waitTimer = null
+
+
+
+
+            $(function () {
+
+
+                // 在文本框中填入值时, [设置人员配置方案]按钮变为可用
+                $("body").on("keyup", "#txtNew", function () {
+                    var v = $.trim(this.value)
+                    if (v.length > 0) {
+                        $("#btnUserConfig").removeAttr("disabled")
+                    } else {
+                        $("#btnUserConfig").attr("disabled", true)
+                    }
+                })
+
+
+
+                @*// 文本框值失去焦点后,保存到[YuZhiLingTemp]
+                $("body").on("blur", "#txtNew", function () {
+                    clearInterval(waitTimer)
+
+                    var v = $.trim(this.value)
+                    var st = '@default_start_day'
+                    var et = '@default_end_day'
+
+                    if (v.length == 0) {
+                        return false
+                    }
+
+                    $.ajax({
+                        type: "post",
+                        contentType: "application/json",
+                        url: "/ZhiLingManage/ZhiLing/QuickSaveTextOrderTo_YuZhiLingTemp",
+                        data: JSON.stringify({ zhiLingText: v, start_day: st, end_day: et, userConfigId: 0 }),
+                        success: function (response) {
+                            if (response == 1) {
+                                txtNew.最近保存的值 = v
+
+                                /*
+                                waitTimer = setInterval(function () {
+                                    console.log("文本描述指令:等待帆软报表点击[提交]按钮")
+                                    $.ajax({
+                                        type: "post",
+                                        contentType: "application/json",
+                                        url: "/ZhiLingManage/ZhiLing/生产运行优化_等候指令的刷新通知",
+                                        success: function (response) {
+                                            if (response == 1) {
+                                                clearInterval(waitTimer)
+                                                location.reload()
+                                            }
+                                        }
+                                    })
+                                }, 3000)
+                                */
+                            }
+                        }
+                    })
+                })*@
+
+
+
+                // 3. 新增时: 1.填入文本 2.点击人员配置,赋值默认人员并保存(文本指令的IsSelected默认为false) 3.保存后弹出选择人员选择窗口 4.再次打开时,赋值
+                $("#btnUserConfig").click(function () {
+                    var txtNew = $("#txtNew")
+                    var v = $.trim(txtNew.val())
+
+                    if (v === txtNew.最近保存的值) {
+                        console.log("内容相同,不需要保存")
+                        return false
+                    }
+
+                    var st = '@default_start_day'
+                    var et = '@default_end_day'
+
+                    $.ajax({
+                        type: "post",
+                        contentType: "application/json",
+                        url: "/ZhiLingManage/ZhiLing/QuickSaveTextOrderTo_YuZhiLingTemp",
+                        data: JSON.stringify({ zhiLingText: v, start_day: st, end_day: et, userConfigId: 0 }),
+                        success: function (response) {
+                            if (response == 1) {
+                                txtNew.最近保存的值 = v
+
+                                open('/ZhiLingManage/ZhiLing/UserConfigForTextOrder_Page', "为文本描述指令选择人员配置方案", "location=no")
+
+                                @* waitTimer = setInterval(function () {
+                                    console.log("文本描述指令:等待帆软报表点击[提交]按钮")
+                                    $.ajax({
+                                        type: "post",
+                                        contentType: "application/json",
+                                        url: "/ZhiLingManage/ZhiLing/生产运行优化_等候指令的刷新通知",
+                                        success: function (response) {
+                                            if (response == 1) {
+                                                clearInterval(waitTimer)
+                                                location.reload()
+                                            }
+                                        }
+                                    })
+                                }, 3000) *@
+                            }
+                        }
+                    })
+
+
+                })
+
+
+
+
+            })
+
+
+        </script>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    @* ----------------------------------- 日期控件设置 ----------------------------------- *@
+    <link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+    <script type="module"></script>
+    <script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            jQuery.datetimepicker.setLocale('ch')
+
+            jQuery('#date_timepicker_start').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        maxDate: jQuery('#date_timepicker_end').val() ? jQuery('#date_timepicker_end').val() : false
+                    })
+                },
+                timepicker: false
+            })
+
+            jQuery('#date_timepicker_end').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        minDate: jQuery('#date_timepicker_start').val() ? jQuery('#date_timepicker_start').val() : false
+                    })
+                },
+                timepicker: false
+            })
+        })
+    </script>
+    @* ----------------------------------- 日期控件设置 ----------------------------------- *@
+</body>
+</html>

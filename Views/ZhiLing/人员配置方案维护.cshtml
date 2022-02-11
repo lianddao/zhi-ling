@@ -1,0 +1,184 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>人员配置方案维护</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .table {
+            font-size: 13px;
+        }
+
+            .table tr td:first-child {
+                color: #888;
+                font-style: italic;
+            }
+
+        .disabled * {
+            color: #aaa;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+    var 页面数据 = service.获取人员配置方案数据();
+}
+
+
+
+<body>
+
+
+
+    <table class="table table-hover" style="table-layout:fixed">
+        <thead>
+            <tr>
+                <th style="width:3em;">#</th>
+                <th style="width:7em;"><button class="fa fa-plus" id="btnAdd"> 新增</button></th>
+                <th>执行人</th>
+                <th>阅知人</th>
+                <th style="width:8em; text-align:center;">修改</th>
+                <th style="width:8em; text-align:center;">设为默认方案</th>
+                <th style="width:8em; text-align:center;">启用</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                foreach (var one in 页面数据) {
+                    var num = 页面数据.IndexOf(one) + 1;
+                    <tr class="@(one.IsEnable?"":"disabled")">
+                        <td>
+                            @num
+                        </td>
+                        <td>@one.RemarkName</td>
+                        <td title="@one.ExecutorValue">
+                            @one.Executor
+                        </td>
+                        <td title="@one.KnowerValue">
+                            @one.Knower
+                        </td>
+                        <td style="text-align:center">
+                            <button type="button" class="fa fa-pencil btn-edit" data-id="@one.ID"></button>
+                        </td>
+                        <td style="text-align:center">
+                            @{
+                                if (one.IsDefault) {
+                                    <label>默认方案</label>
+                                }
+                                else {
+                                    <button type="button" class="btn-set-default fa fa-database" data-id="@one.ID"></button>
+                                }
+                            }
+                        </td>
+                        <td style="text-align:center">
+                            @{
+                                if (one.IsEnable) {
+                                    <input type="checkbox" class="btn-set-enable" data-id="@one.ID" checked />
+                                }
+                                else {
+                                    <input type="checkbox" class="btn-set-enable" data-id="@one.ID" />
+                                }
+                            }
+
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+
+    <script>
+        $(function () {
+            $(".btn-set-default").click(function () {
+                var userConfigId = $(this).attr("data-id")
+
+                $.ajax({
+                    type: "post",
+                    url: "/ZhiLingManage/ZhiLing/SetDefaultUserConfig",
+                    data: { id: userConfigId },
+                    success: function (response) {
+                        location.reload()
+                    }
+                })
+            })
+
+            $(".btn-set-enable").change(function () {
+                var tr = $(this).parents("tr")
+                var v = event.target.checked ? 1 : 0
+                var id = $(this).attr("data-id")
+
+
+
+                $.ajax({
+                    type: "post",
+                    url: "/ZhiLingManage/ZhiLing/设置人员配置方案的启用状态",
+                    data: { id: id, enable: v },
+                    success: function (response) {
+                        location.reload()
+                    }
+                })
+            })
+
+
+        })
+    </script>
+
+
+
+
+
+
+
+    <!-- 新增或修改弹出层 -->
+    <script>
+        var 新增或修改弹出层
+
+        $(function () {
+            新增或修改弹出层 = new bootstrap.Modal(document.getElementById('新增或修改弹出层'), {
+                keyboard: false
+            })
+
+            $(".btn-edit, #btnAdd").click(function () {
+                if ($(this).is(".btn-edit")) {
+                    $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/人员配置方案维护_新增或修改?id=" + $(this).attr("data-id"))
+                }
+                else {
+                    $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/人员配置方案维护_新增或修改")
+                }
+                新增或修改弹出层.show()
+            })
+        })
+    </script>
+    <div class="modal fade" id="新增或修改弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title"></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="iframe1" style="width:100%; height:100%;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

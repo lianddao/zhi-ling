@@ -1,0 +1,280 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Repository.ZhiLingManage;
+@using PlanExecut.Web.Areas.ZhiLingManage.DTO;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+
+@{
+    ViewBag.Title = "主要控制指标_指令状态弹出页";
+    Layout = "~/Views/Shared/_Default.cshtml";
+
+    string 运行日期 = Request.Params ["RunningDay"] == null ? string.Empty : Request.Params ["RunningDay"];
+
+    ZhiLingService service = new ZhiLingService();
+    List<指令运行状态VO> all = service.主要控制指标_获取特定的实际数据_并按MESID分组(运行日期);
+
+    List<ZhiLingInfo> 表格的所有指令 = new List<ZhiLingInfo>();
+    foreach (var one in all) {
+        表格的所有指令.AddRange(one.装置调整.已下达的指令数据);
+        表格的所有指令.AddRange(one.主要控制指标.已下达的指令数据);
+        表格的所有指令.AddRange(one.生产运行优化.已下达的指令数据);
+    }
+}
+
+
+
+
+<script src="~/Content/appjs/指令实际数据页面.js"></script>
+<div id="result" style="display:none;"></div>
+
+
+<style>
+    .table tr td:first-child {
+        color: #888;
+        font-style: italic;
+    }
+
+    .header th {
+        position: sticky;
+        top: 0;
+    }
+
+    .hide {
+        display: none;
+    }
+
+    .btn-view-chart {
+        cursor: pointer;
+    }
+</style>
+<div>
+
+
+    <div class="container-fluid">
+
+
+        @{
+            if (运行日期.Length == 0) {
+                // 从帆软报表打开对应的指令,不需要搜索功能
+            }
+            else {
+                <!-- ----------------------------------- 搜索层 ----------------------------------- -->
+                <div style="margin:1em 0; position:relative;">
+                    <form method="get" action="/ZhiLingManage/ZhiLing/主要控制指标_指令状态弹出页">
+                        <input type="text" class="" style="width:10em;" name="RunningDay" id="date_timepicker" autocomplete="off" placeholder="运行日期" value="@运行日期" />
+                        <button class="fa fa-search" disabled> 搜索</button>
+                    </form>
+                </div>
+                <link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+                <script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+                <script type="text/javascript">
+                    $(function () {
+                        jQuery.datetimepicker.setLocale('ch')
+
+                        jQuery('#date_timepicker').datetimepicker({
+                            format: 'Y-m-d',
+                            timepicker: false
+                        })
+                    })
+                </script>
+            }
+        }
+
+
+
+
+
+
+
+
+        @{
+            foreach (var item in all) {
+                <fieldset>
+                    <legend>
+                        @item.ZhiLingTitle
+                        <label style="font-size:0.5em; color:#666; margin-left:1em;">指令状态: 「<label class="order-state" data-state="@item.StateText">@item.StateText</label>」</label>
+                    </legend>
+                    <table class="table" style="table-layout:fixed;">
+                        <tr class="header">
+                            <th style="width:3em;">#</th>
+                            <th>指令标题</th>
+                            <th style="width:16em;">执行日期</th>
+                            <th style="width:10em;">计划值</th>
+                            <th style="width:10em;">最后值</th>
+                            <th style="width:15em;">实际值</th>
+                            <th style="width:7em;">预警状态</th>
+                            <th style="width:3em"><i class="fa fa-area-chart"></i></th>
+                        </tr>
+                        <tbody>
+                            @{
+                                foreach (var one in item.主要控制指标.已下达的指令数据) {
+                                    var data_index = item.主要控制指标.已下达的指令数据.IndexOf(one);
+                                    <tr data-id="@one.ID">
+                                        <td title="@one.ID">@(data_index+1)</td>
+                                        <td>@one.主要控制指标指令的标题</td>
+                                        <td>@one.OrderStartTime.ToDateString() <i class="fa fa-exchange" style="color:#aaa; margin:0 0.2em;"></i> @one.OrderEndTime.ToDateString()</td>
+                                        <td><label>@one.直观计划值</label> <i class="fa fa-wrench btn-edit hide"></i></td>
+                                        <td>@one.RealValue</td>
+
+                                        @{
+                                            if (one.MiniValue == null) {
+                                                <td class="mini-chart" data-index="@data_index"><i class="fa fa-spinner"></i></td>
+                                            }
+                                            else {
+                                                <td class="mini-chart" data-index="@data_index" data-sparkline="@one.MiniValue"></td>
+                                            }
+                                        }
+
+                                        <td>@one.预警状态 -</td>
+                                        <td><i class="fa fa-area-chart btn-view-chart" mesOrderId="@one.ID" data-title="@one.主要控制指标指令的标题"></i></td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                    @{
+                        if (表格的所有指令.Count > 0) {
+                            <button type="button" class="fa fa-pencil btn-update" data-root-mesid="@item.RootMesId" data-order-title="@item.ZhiLingTitle"> 修改,补充指令</button>
+                        }
+                    }
+                </fieldset>
+            }
+        }
+
+
+
+
+
+
+        <script>
+            var 表格数据 = @Html.Raw(表格的所有指令.ToJson())
+
+            $(function () {
+                $(".mini-chart").each(function () {
+                    var td = $(this)
+                    var index = parseInt($(this).attr("data-index"))
+                    var one = 表格数据[index]
+
+
+                    var minivalue = $(this).attr("data-sparkline")
+                    if (minivalue != undefined) {
+                        return true
+                    }
+
+                    if (one.OrderState == 3) {
+                        // 指令'已完成'或'已完结',不需要再更新实际数据
+                        return true
+                    }
+
+
+                    // 实际数据为空, 或者状态不是"已完结"时，则会异步获取实际数据
+                    $.ajax({
+                        type: "post",
+                        contentType: "application/json",
+                        url: "/ZhiLingManage/ZhiLing/GetRealData",
+                        data: JSON.stringify({ arg: one }),
+                        success: function (response) {
+                            if (response.MiniTime.length > 1) {
+                                // 有多个实际值时,显示迷你图
+                                td.attr("data-shijian", response.MiniTime)
+                                td.attr("data-sparkline", response.MiniValue)
+                                迷你图表显示()
+                            }
+                            else {
+                                // 只有一个实际值时,显示该值
+                                td.find("i").hide()
+                                var label = $("<label>")
+                                label.text(response.RealValue)
+                                td.append(label)
+                            }
+
+                            td.prev().text(response.RealValue)
+                            td.next().text(response.预警状态)
+                        }
+                    })
+                })
+            })
+        </script>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+<!-- 实际数据图表弹出框 -->
+<div class="modal fade" id="图表弹出框" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">实际数据图表弹出框</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<!-- 装置调整_修改补充弹出 -->
+<script>
+    $(function () {
+        var 指令修改或补充弹出层 = new bootstrap.Modal(document.getElementById('指令修改或补充弹出层'), {
+            keyboard: false
+        })
+
+        $(".btn-update").click(function () {
+            var root_mesid = $(this).attr("data-root-mesid")
+            $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/主要控制指标_修改补充指令弹出页?root_mesid=" + root_mesid)
+
+            var title = $(this).attr("data-order-title")
+            $("#modal-title").text(title)
+
+            指令修改或补充弹出层.show()
+        })
+    })
+</script>
+<div class="modal fade" id="指令修改或补充弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header" style="padding:1em;">
+                <h6 id="modal-title" class="modal-title">修改,补充主要控制指标指令</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <iframe id="iframe1" style="width:100%; height:98%;"></iframe>
+            </div>
+        </div>
+    </div>
+</div>

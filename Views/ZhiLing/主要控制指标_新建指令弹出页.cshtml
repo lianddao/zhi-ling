@@ -1,0 +1,327 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Domain.Entity.PlanOrderManageEntity;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using PlanExecut.Repository.ZhiLingManage;
+@using PlanExecut.Web.Areas.ZhiLingManage.DTO;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>主要控制指标_新建指令弹出页</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .table {
+            font-size: 13px;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+        }
+
+        .data-row td:last-child {
+            text-align: center;
+        }
+
+        .new-plan-value, .prev-plan-value {
+            width: 6em;
+        }
+
+        .selected-row {
+            background-color: yellow;
+        }
+
+        .fen-ge-xian {
+            border-top: dotted 2px;
+        }
+
+        table input[type=text] {
+            width: 4em;
+        }
+
+        .cb-select {
+            display: none;
+        }
+
+        .true-dian {
+            color: green;
+        }
+
+        .false-dian {
+            color: red;
+        }
+    </style>
+</head>
+
+
+
+@{
+    ZhiLingService service = new ZhiLingService();
+    下指令For帆软报表DTO dto = service.主要控制指标_下指令时使用的DTO(null);
+
+    // 过滤没有点位号的
+    var 已定义的预指令 = dto.已定义的预指令.Where(i => false == string.IsNullOrWhiteSpace(i.DianWeiHao)).ToList();
+    var groups = 已定义的预指令.GroupBy(i => i.DeviceUnitCode).Select(j => j.Key).ToList();
+
+    // 搜索
+    var device = Request.Params ["device"];
+    var keyword = Request.Params ["keyword"];
+    if (false == string.IsNullOrWhiteSpace(device)) {
+        已定义的预指令 = 已定义的预指令.Where(i => i.DeviceUnitCode == device).ToList();
+    }
+    if (false == string.IsNullOrWhiteSpace(keyword)) {
+        已定义的预指令 = 已定义的预指令.Where(i => i.OrderTitle.Contains(keyword)).ToList();
+    }
+}
+
+
+
+<body>
+
+    <div style="position:fixed; top:0; bottom:1em; left:1em; width:19em; overflow: auto;">
+        <div>
+            <form>
+                <select name="device">
+                    <option value="">装置单元</option>
+                    @{
+                        foreach (var group in groups) {
+                            if (group == device) {
+                                <option selected>@group</option>
+                            }
+                            else {
+                                <option>@group</option>
+                            }
+                        }
+                    }
+                </select>
+                <input type="text" placeholder="取值位号名称" name="keyword" style="width:10em;" value="@keyword" />
+                <button class="fa fa-search"></button>
+            </form>
+        </div>
+
+
+        <textarea id="textarea1" style="width:100%; height:70%; font-size:0.7em;" readonly>@dto.指令字符串</textarea>
+        <i style="color:#888; font-size:small">-主要控制指标</i>
+    </div>
+
+
+    <div style="position:fixed; top:0; right:1em; bottom:1em; left:21em; overflow:auto;">
+        <table class="table" style="table-layout:fixed;">
+            <caption>@已定义的预指令.Count 行</caption>
+            <thead style="position:sticky; top:0; background-color:white;">
+                <tr>
+                    <th class="header" style="width:5em;">单元</th>
+                    <th class="header">指令名称</th>
+                    <th class="header" style="width:15em;">计划值</th>
+                    <th class="header" style="width:7em;">≥下限值</th>
+                    <th class="header" style="width:7em;">≤上限值</th>
+                    <th class="header" style="width:5em; text-align:center;">点位号</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    var 分割线使用的单元号 = 已定义的预指令 [0].DeviceUnitCode;
+                    var borderClass = string.Empty;
+                    foreach (var one in 已定义的预指令) {
+                        var index = 已定义的预指令.IndexOf(one);
+                        if (one.DeviceUnitCode != 分割线使用的单元号) {
+                            borderClass = "fen-ge-xian";
+                            分割线使用的单元号 = one.DeviceUnitCode;
+                        }
+                        <tr class="data-row @borderClass @(one.IsSelected?"selected-row":string.Empty)" index-value="@index">
+                            <td>@one.DeviceUnitCode</td>
+                            <td>
+                                @{
+                                    if (one.IsSelected) {
+                                        <input type="checkbox" class="cb-select" checked />
+                                    }
+                                    else {
+                                        <input type="checkbox" class="cb-select" />
+                                    }
+                                }
+                                @one.OrderTitle
+                            </td>
+                            <td>
+                                <input type="text" class="plan-v" value="@one.PlanValue" autocomplete="off" />
+                                ±
+                                <input type="text" class="up-low-v" value="@one.ShangXiaXian" autocomplete="off" />
+                                @one.Unit
+                            </td>
+                            <td><input type="text" class="low-v" value="@one.LowValue" autocomplete="off" /></td>
+                            <td><input type="text" class="up-v" value="@one.UpValue" autocomplete="off" /></td>
+                            <td data-bs-toggle="tooltip" title="@one.DianWeiHao">
+                                <i class="fa fa-info-circle @(string.IsNullOrWhiteSpace(one.DianWeiHao) ? " false-dian" : "true-dian" )" title="@one.DianWeiHao"></i>
+                            </td>
+                        </tr>
+                        borderClass = string.Empty;
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <script>
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+
+
+
+
+        var _selected_row = "selected-row"
+        var 已定义的预指令 = @Html.Raw(已定义的预指令.ToJson());
+
+
+        function 快速保存并返回指令预览() {
+            var 用户选择的 = []
+            $(".selected-row").each(function () {
+                var row = $(this)
+
+                var plan_v = row.find('.plan-v').val()
+                var low_v = row.find('.low-v').val()
+                var up_v = row.find('.up-v').val()
+                var len = plan_v.length + low_v.length + up_v.length
+                if (len == 0) {
+                    // 行无效
+                    return true
+                }
+
+                var index = row.attr("index-value")
+                var one = 已定义的预指令[index]
+
+                var plan_value = row.find('.plan-v').val()
+                var up_low_value = row.find('.up-low-v').val()
+                var low_value = row.find('.low-v').val()
+                var up_value = row.find('.up-v').val()
+                one.PlanValue = plan_value
+                one.ShangXiaXian = up_low_value
+                one.LowValue = low_value
+                one.UpValue = up_value
+                one.IsSelected = true
+
+                用户选择的.push(one)
+            })
+
+
+            if (用户选择的.length == 0) {
+                return false
+            }
+
+
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/主要控制指标_新增指令的快速保存",
+                data: JSON.stringify({ selectedList: 用户选择的, root_mesid: '' }),
+                success: function (response) {
+                    $("#textarea1").val(response)
+                    if (window.opener == null) {
+                    } else {
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response)
+                    }
+                }
+            })
+        }
+
+
+
+        function 取消选择某一行(row,计划值,下限值,上限值) {
+            @*if ($(".selected-row").length == 0) {
+                alert("至少要保留一条指令")
+                row.find(":checkbox")[0].checked = true
+                return
+            }*@
+
+            var index = row.attr("index-value")
+            var target = 已定义的预指令[index]
+            target.PlanValue = 计划值
+            target.LowValue = 下限值
+            target.UpValue = 上限值
+            target.IsSelected = false
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/主要控制指标_不选择一个指令并返回最新的指令字符串",
+                data: JSON.stringify({ one: target }),
+                success: function (response) {
+                    row.removeClass("selected-row")
+                    $("#textarea1").val(response.ZhiLingText)
+
+                    var cb = row.find(".cb-select")[0]
+                    cb.removeAttribute("checked")
+                    cb.checked = false
+
+                    if (window.opener == null) {
+                    } else {
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response)
+                    }
+                }
+            })
+        }
+
+
+
+
+
+        $(function () {
+
+            $("body").on("keyup", ".plan-v, .up-low-v, .up-v, .low-v", function () {
+                var v = this.value
+                var row = $(this).parents("tr")
+
+                var plan_v = row.find('.plan-v').val()
+                var low_v = row.find('.low-v').val()
+                var up_v = row.find('.up-v').val()
+                var len = plan_v.length + low_v.length + up_v.length
+                if (len == 0) {
+                    // 行无效
+                    取消选择某一行(row, plan_v,low_v,up_v)
+                    return
+                }
+
+                row.addClass("selected-row")
+
+                var cb = row.find(".cb-select")[0]
+                cb.setAttribute("checked", "checked")
+                cb.checked = true
+
+                快速保存并返回指令预览()
+            })
+
+
+        })
+
+    </script>
+
+
+
+</body>
+</html>

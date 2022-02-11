@@ -1,0 +1,252 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+@using System.Diagnostics;
+@using PlanExecut.Domain.Entity.PlanOrderManageEntity;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>人员配置方案维护.详情</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        table {
+            font-size: small;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        fieldset {
+            padding: 2em 1px;
+        }
+
+        legend {
+            font-size: xx-small;
+        }
+
+        .edit-row {
+            border: dashed 1px #ff6a00;
+            display: none;
+        }
+
+        td.longtext {
+            word-wrap: break-word;
+        }
+
+        .header {
+            position: -webkit-sticky;
+            position: sticky;
+            background-color: white !important;
+            top: 0;
+        }
+
+        .clicked {
+            border-left: solid;
+        }
+
+        .disabled {
+            color: #aaa;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+
+    List<string> 左侧部门数据 = service.获取部门数据();
+
+    string 默认部门 = 左侧部门数据.First();
+
+    List<MesUser> 所有人员数据 = service.获取指定部门的用户(null);
+
+    List<MesUser> 右侧人员数据 = 所有人员数据.Where(i => i.DepartName == 默认部门).ToList();
+
+    var fang_an_id = Request.QueryString ["id"];
+    PlanExecutor 当前修改的方案 = null;
+    if (false == string.IsNullOrWhiteSpace(fang_an_id)) {
+        当前修改的方案 = service.获取指定的人员配置方案(int.Parse(fang_an_id));
+    }
+
+
+    int a = 0;
+
+}
+
+
+
+<body>
+
+    <table class="table" style="table-layout:fixed;">
+        <tr>
+            <td style="width:6em;">方案名称</td>
+            <td>
+                @{
+                    if (当前修改的方案 == null) {
+                        <input id="txtName" name="方案名称" type="text" autocomplete="off" />
+                    }
+                    else {
+                        <input id="txtName" name="方案名称" type="text" autocomplete="off" value="@当前修改的方案.RemarkName" />
+                    }
+                }
+            </td>
+        </tr>
+        <tr>
+            <td>执行人</td>
+            <td>
+
+                @{
+                    if (当前修改的方案 == null) {
+                        <textarea id="txtZhiXingRen" readonly rows="8" style="width:100%;"></textarea>
+                        <button type="button" id="btn-open-dialog-1">选择执行人</button>
+                        <input id="hidZhiXingRen" type="hidden" name="执行人索引" />
+                    }
+                    else {
+                        <textarea id="txtZhiXingRen" readonly rows="8" style="width:100%;">@当前修改的方案.执行人_回车分隔</textarea>
+                        <button type="button" id="btn-open-dialog-1">选择执行人</button>
+                        <input id="hidZhiXingRen" type="hidden" name="执行人索引" value="@当前修改的方案.执行人索引_回车分隔" />
+                    }
+                }
+            </td>
+        </tr>
+        <tr>
+            <td>阅知人</td>
+            <td>
+                @{
+                    if (当前修改的方案 == null) {
+                        <textarea id="txtYueZhiRen" readonly rows="8" style="width:100%;"></textarea>
+                        <button type="button" id="btn-open-dialog-2">选择阅知人</button>
+                        <input id="hidYueZhiRen" type="hidden" name="阅知人索引" />
+                    }
+                    else {
+                        <textarea id="txtYueZhiRen" readonly rows="8" style="width:100%;">@当前修改的方案.阅知人_回车分隔</textarea>
+                        <button type="button" id="btn-open-dialog-2">选择阅知人</button>
+                        <input id="hidYueZhiRen" type="hidden" name="阅知人索引" value="@当前修改的方案.阅知人索引_回车分隔" />
+                    }
+                }
+
+            </td>
+        </tr>
+    </table>
+
+    @{
+        if (当前修改的方案 == null) {
+            <button type="button" id="btnSave">保存新增</button>
+        }
+        else {
+            <button type="button" id="btnSave">保存修改</button>
+        }
+    }
+
+
+
+
+
+
+
+
+
+    <script>
+        var 执行人员数据弹出层, 阅知人员数据弹出层
+
+        $(function () {
+            执行人员数据弹出层 = new bootstrap.Modal(document.getElementById('执行人员数据弹出层'), {
+                keyboard: false
+            })
+
+            阅知人员数据弹出层 = new bootstrap.Modal(document.getElementById('阅知人员数据弹出层'), {
+                keyboard: false
+            })
+
+            $("#btn-open-dialog-1").click(function () {
+                $("#iframe1").attr("src", "/ZhiLingManage/ZhiLing/人员配置方案维护_人员数据?arg=执行人")
+                执行人员数据弹出层.show()
+            })
+
+            $("#btn-open-dialog-2").click(function () {
+                $("#iframe2").attr("src", "/ZhiLingManage/ZhiLing/人员配置方案维护_人员数据?arg=阅知人")
+                阅知人员数据弹出层.show()
+            })
+        })
+    </script>
+
+    <!-- 执行人员数据弹出层 -->
+    <div class="modal fade" id="执行人员数据弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">选择执行人</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="iframe1" style="width:100%; height:60vh;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 阅知人员数据弹出层 -->
+    <div class="modal fade" id="阅知人员数据弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">选择阅知人</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="iframe2" style="width:100%; height:60vh;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <script>
+        var $txtName, $txtZhiXingRen, $txtYueZhiRen
+
+        var 所有人员数据 = @Html.Raw(所有人员数据.ToJson())
+
+        $(function () {
+
+            $txtName = $("#txtName")
+            $txtZhiXingRen = $("#txtZhiXingRen")
+            $txtYueZhiRen = $("#txtYueZhiRen")
+
+            $("#btnSave").click(function () {
+                var name = $.trim($txtName.val())
+                if (name.length == 0) {
+                    alert('请填写方案名称')
+                    return
+                }
+
+                $.ajax({
+                    type: "post",
+                    url: "/ZhiLingManage/ZhiLing/人员配置方案维护_保存",
+                    data: { 方案名称: name, 执行人索引: $("#hidZhiXingRen").val(), 阅知人索引: $("#hidYueZhiRen").val() },
+                    success: function (response) {
+                        if (response == 1) {
+                            window.parent.location.reload()
+                        }
+                    }
+                })
+            })
+        })
+
+    </script>
+</body>
+</html>

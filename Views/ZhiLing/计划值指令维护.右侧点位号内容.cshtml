@@ -1,0 +1,243 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>计划值指令维护.右侧点位号内容</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        table {
+            font-size: small;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+            td input[type=text] {
+                width: 100%;
+            }
+
+            td textarea {
+                width: 100%;
+                height: 5em;
+            }
+
+        fieldset {
+            padding: 2em 1px;
+        }
+
+        legend {
+            font-size: xx-small;
+        }
+
+        .edit-row {
+            border: dashed 1px #ff6a00;
+            display: none;
+        }
+
+        td.longtext {
+            word-wrap: break-word;
+        }
+
+        .header th {
+            position: -webkit-sticky;
+            position: sticky;
+            background-color: white !important;
+            top: 0;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+
+    var defaultDanYuan = Request.QueryString ["DanYuan"];
+    var defaultOrderTypeId = Request.QueryString ["OrderTypeId"];
+
+    var 点位号数据 = service.Service2_指令维护页面使用的_点位号数据(defaultDanYuan, defaultOrderTypeId);
+
+    var 单位数据 = service.DanWei_Service1_所有单位数据();
+
+    var 选定的指令 = service.Service1_指令维护页面使用的_用户自定义指令(defaultDanYuan);
+}
+
+
+
+<body>
+
+
+
+    <table class="table" style="width:100%; table-layout:fixed;">
+        <tr class="header">
+            <th style="width:4em;">#</th>
+            <th style="width:7em;">单位 <i class="fa fa-wrench"></i></th>
+            <th style="width:13em;">侧线名</th>
+            <th style="width:10em;">侧线指标</th>
+            <th style="width:8em;">点位名</th>
+            <th>点位号</th>
+            <th style="width:8em;">计划值</th>
+            <th style="width:8em;">上限值</th>
+            <th style="width:8em;">下限值</th>
+            <th style="width:7em;">修改</th>
+        </tr>
+        @{
+
+            foreach (var ii in 点位号数据) {
+                <tr>
+                    <td><input type="checkbox" value="@ii.ID" checked="@ii.IsUsed" /></td>
+                    <td>@ii.Unit</td>
+                    <td>@ii.CodeName</td>
+                    <td>@ii.CategoryName</td>
+                    <td>@ii.DianWeiName</td>
+                    <td class="longtext">@ii.DianWeiHao</td>
+                    <td>@ii.PlanValue</td>
+                    <td>@ii.TopValue</td>
+                    <td>@ii.LowValue</td>
+                    <td>
+                        <button type="button" class="btnEdit fa fa-pencil"></button>
+                    </td>
+                </tr>
+                <tr class="edit-row">
+                    <td colspan="2">
+                        <select>
+                            @{
+                                foreach (var unit in 单位数据) {
+                                    <option value="@unit.F_Id" selected="@(ii.UnitId==@unit.F_Id)">@unit.Unit</option>
+                                }
+                            }
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.CodeName" name="CodeName" />
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.CategoryName" name="CategoryName" />
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.DianWeiName" name="DianWeiName" />
+                    </td>
+                    <td>
+                        <textarea name="DianWeiHao">@ii.DianWeiHao</textarea>
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.PlanValue" name="PlanValue" />
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.TopValue" name="TopValue" />
+                    </td>
+                    <td>
+                        <input type="text" autocomplete="off" value="@ii.LowValue" name="LowValue" />
+                    </td>
+                    <td>
+                        <button type="button" class="btnSave fa fa-save" data-index="@(点位号数据.IndexOf(ii))"></button>
+                        <button type="button" class="btnCancel fa fa-ban"></button>
+                    </td>
+                </tr>
+            }
+        }
+    </table>
+
+    @*<div class="accordion" id="accordionExample">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-controls="collapseOne">
+                        开发数据
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                    <div class="accordion-body">
+                        <fieldset>
+                            <legend>SELECT * FROM M_data_Unit</legend>
+                            <textarea style="width:100%;" rows="2">@单位数据.Select(i=>i.Unit).ToJson()</textarea>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>SELECT * FROM M_OrderType WHERE DeviceCode = @defaultDanYuan</legend>
+                            <textarea style="width:100%;" rows="5">@选定的指令.ToJson()</textarea>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>SELECT * FROM M_ProductOrderType WHERE OrderTypeId = @defaultOrderTypeId</legend>
+                            @{
+                                var selectedList = service._已定义指令的已选择侧线项(defaultOrderTypeId);
+                            }
+                            <textarea rows="8" style="width:100%;">@selectedList.ToJson()</textarea>
+                        </fieldset>
+                    </div>
+                </div>
+            </div>
+        </div>*@
+
+
+
+    <script type="text/javascript">
+
+        var DianWeiHaoJsonData = @Html.Raw(点位号数据.ToJson());
+
+
+        function 修改点位号等信息(target) {
+            var index = parseInt($(target).attr("data-index"))
+            var one = DianWeiHaoJsonData[index]
+            var 编辑行 = $(target).parents("tr")
+
+            one.CodeName = 编辑行.find("[name=CodeName]").val()
+            one.CategoryName = 编辑行.find("[name=CategoryName]").val()
+            one.DianWeiName = 编辑行.find("[name=DianWeiName]").val()
+            one.DianWeiHao = 编辑行.find("[name=DianWeiHao]").val()
+            one.UnitId = 编辑行.find("select").val()
+            one.PlanValue = 编辑行.find("[name=PlanValue]").val()
+            one.TopValue = 编辑行.find("[name=TopValue]").val()
+            one.LowValue = 编辑行.find("[name=LowValue]").val()
+
+            $.ajax({
+                type: 'post',
+                url: '/ZhiLingManage/ZhiLing/修改点位号等信息',
+                data: one,
+                success: function () {
+                    location.reload()
+                }
+            })
+        }
+
+
+        $(function () {
+
+            $(".btnEdit").click(function () {
+                var thisRow = $(this).parents("tr")
+                var nextRow = thisRow.next()
+                thisRow.hide()
+                nextRow.show()
+            })
+
+            $(".btnSave").click(function () {
+                修改点位号等信息(this)
+            })
+
+            $(".btnCancel").click(function () {
+                var thisRow = $(this).parents("tr")
+                var prevRow = thisRow.prev()
+                thisRow.hide()
+                prevRow.show()
+            })
+
+        })
+
+    </script>
+
+</body>
+</html>

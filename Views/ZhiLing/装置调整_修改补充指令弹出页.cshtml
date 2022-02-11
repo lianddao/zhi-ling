@@ -1,0 +1,401 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Domain.Entity.PlanOrderManageEntity;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using PlanExecut.Repository.ZhiLingManage;
+@using PlanExecut.Web.Areas.ZhiLingManage.DTO;
+@using PlanExecut.Web.Areas.ZhiLingManage.VO;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>装置调整_修改补充指令弹出页</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        .table, select, input {
+            font-size: 13px;
+        }
+
+            .table tr td:first-child {
+                color: #ddd;
+                font-style: italic;
+            }
+
+            .table tr td:last-child {
+                text-align: center;
+            }
+
+
+        .header th {
+            position: sticky;
+            top: 0;
+        }
+
+        .new-plan-value, .prev-plan-value {
+            width: 6em;
+        }
+
+        .selected-row {
+            background-color: yellow;
+        }
+
+        .fen-ge-xian {
+            border-top: dotted 2px;
+        }
+
+        .cb-select {
+            display: none;
+        }
+
+        .true-dian {
+            color: green;
+        }
+
+        .false-dian {
+            color: red;
+        }
+
+        fieldset {
+            font-size: 13px;
+        }
+
+        #divLeft textarea {
+            width: 100%;
+        }
+
+        #divLeft * {
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+
+
+@{
+    // 默认修改目标
+    TianBiaoContentRepository rep = new TianBiaoContentRepository();
+    var first = rep.IQueryable().First();
+    string 根MESID = first.MESID;
+
+    // 指令了root_mesid
+    string root_mesid = Request.Params ["root_mesid"];
+    if (false == string.IsNullOrWhiteSpace(root_mesid)) {
+        根MESID = root_mesid;
+    }
+
+
+    ZhiLingService service = new ZhiLingService();
+    下指令For帆软报表DTO dto = service.装置调整_下指令时使用的DTO(根MESID);
+    var 已定义的预指令 = dto.已定义的预指令;
+    var 指令字符串 = dto.指令字符串;
+    var groups = 已定义的预指令.GroupBy(i => i.DeviceUnitCode).Select(j => j.Key).ToList();
+    var 指令标题 = dto.指令标题;
+
+    var 开始日期 = dto.开始日期;
+    var 结束日期 = dto.结束日期;
+
+    // 搜索
+    var device = Request.Params ["device"];
+    var keyword = Request.Params ["keyword"];
+    if (false == string.IsNullOrWhiteSpace(device)) {
+        已定义的预指令 = 已定义的预指令.Where(i => i.DeviceUnitCode == device).ToList();
+    }
+    if (false == string.IsNullOrWhiteSpace(keyword)) {
+        已定义的预指令 = 已定义的预指令.Where(i => i.OrderTitle.Contains(keyword)).ToList();
+    }
+}
+
+
+<body>
+    <div>
+        <div id="divLeft" style="position:fixed; top:0; bottom:1em; left:1em; width:19em; overflow: auto;">
+
+            <!-- 1. 搜索 -->
+            <div style="position:absolute; width:100%; top:0; height:2em; line-height:2em;">
+                <form>
+                    <select name="device">
+                        <option value="">装置单元</option>
+                        @{
+                            foreach (var group in groups) {
+                                if (group == device) {
+                                    <option selected>@group</option>
+                                }
+                                else {
+                                    <option>@group</option>
+                                }
+                            }
+                        }
+                    </select>
+                    <input type="text" placeholder="取值位号名称" autocomplete="off" name="keyword" style="width:10em;" value="@keyword" />
+                    <button class="fa fa-search" style="font-size:13px;"></button>
+                </form>
+            </div>
+
+            <!-- 2. 旧指令 -->
+            <div style="position:absolute; width:100%; top:3em; bottom:50vh; ">
+                <div>
+                    @开始日期 <i class="fa fa-exchange" style="color:#aaa; margin:0 0.2em;"></i> @结束日期
+                </div>
+                <textarea readonly style="height:2em;">@指令标题</textarea>
+                <textarea id="textarea1" style="width:100%; font-size:0.7em; position:absolute; top:5em; left:0; bottom:0;" readonly>@指令字符串</textarea>
+            </div>
+
+
+
+            <!-- 3. 新指令 -->
+            <div style="position:absolute; width:100%; top:50vh; bottom:0;  ">
+                <div style="text-align:center; margin-bottom:1em;">
+                    <i class="fa fa-arrow-down" style="font-size:2em;"></i>
+                </div>
+                <div>
+                    <i class="fa fa-info-circle" title="采用相同的指令日期"></i>
+                    @开始日期 <i class="fa fa-exchange" style="color:#aaa; margin:0 0.2em;"></i> @结束日期
+                </div>
+                <textarea id="txtOrderTitle" placeholder="填入指令标题" style="width:100%; height:2em; "></textarea>
+                <textarea id="textarea2" placeholder="请选择指令" readonly style="position:absolute; top:7em; left:0; bottom:2em;"></textarea>
+                <button type="button" id="btnSave" style="position:absolute; width:100%; left:0; bottom:0;"> 作为新指令发送到MES</button>
+            </div>
+
+        </div>
+
+
+
+        <div style="position:fixed; top:0; right:1em; bottom:1em; left:21em; overflow:auto;">
+            <table class="table" style="table-layout:fixed;">
+                <caption>装置调整_修改补充指令弹出页</caption>
+                <thead style="position:sticky; top:0; background-color:white;">
+                    <tr class="header">
+                        <th style="width:3em;">#</th>
+                        <th style="width:6em;">装置单元</th>
+                        <th>装置调整指令名称</th>
+                        <th style="width:28em;">计划量</th>
+                        <th style="width:9em;">点位名</th>
+                        <th style="width:5em; text-align:center;">点位号</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var 分割线使用的单元号 = 已定义的预指令 [0].DeviceUnitCode;
+                        var borderClass = string.Empty;
+                        foreach (var one in 已定义的预指令) {
+                            var index = 已定义的预指令.IndexOf(one);
+                            if (one.DeviceUnitCode != 分割线使用的单元号) {
+                                borderClass = "fen-ge-xian";
+                                分割线使用的单元号 = one.DeviceUnitCode;
+                            }
+                            <tr class="@borderClass @(one.IsSelected?"selected-row":string.Empty)" index-value="@index">
+                                <td>@(index+1)</td>
+                                <td>@one.DeviceUnitCode</td>
+                                <td><input type="checkbox" class="cb-select" checked="@one.IsSelected" /> @one.OrderTitle</td>
+                                <td>
+                                    由
+                                    <input type="text" placeholder="上次计划量" class="prev-plan-value" value="@one.PrevPlanValue" /> <i>@one.Unit</i>
+                                    调整为
+                                    <input type="text" placeholder="新计划量" class="new-plan-value" value="@one.PlanValue" /> <i>@one.Unit</i>
+                                </td>
+                                <td>
+                                    @one.DianWeiName
+                                </td>
+                                <td data-bs-toggle="tooltip" title="@one.DianWeiHao">
+                                    <i class="fa fa-info-circle @(string.IsNullOrWhiteSpace(one.DianWeiHao) ? "false-dian" : "true-dian")" title="@one.DianWeiHao"></i>
+                                </td>
+                            </tr>
+                            borderClass = string.Empty;
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+
+
+
+
+
+    <script>
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+
+
+
+
+
+        var _selected_row = "selected-row"
+
+        var 已定义的预指令 = @Html.Raw(已定义的预指令.ToJson());
+
+        var root_mesid = '@根MESID'
+
+
+
+        function 快速保存并返回指令预览() {
+            var 用户选择的 = []
+            $(".selected-row").each(function () {
+                var row = $(this)
+                var index = row.attr("index-value")
+                var one = 已定义的预指令[index]
+
+                var prev_plan_value = row.find(".prev-plan-value").val()
+                var new_plan_value = row.find(".new-plan-value").val()
+
+                if (prev_plan_value.length == 0 || new_plan_value.length == 0) {
+                    return true
+                }
+
+                one.PrevPlanValue = prev_plan_value
+                one.PlanValue = new_plan_value
+                one.IsSelected = true
+
+                // 人员配置id
+                one.UserConfigId = parseInt(row.find(".config-id").attr("id-value"))
+                用户选择的.push(one)
+            })
+
+
+            if (用户选择的.length == 0) {
+                return false
+            }
+
+
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/装置调整_追加指令的快速保存",
+                data: JSON.stringify({ selectedList: 用户选择的, root_mesid: root_mesid }),
+                success: function (response) {
+                    $("#textarea2").val(response)
+                    if (window.opener == null) {
+                    } else {
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response)
+                    }
+                }
+            })
+        }
+
+
+        $(function () {
+
+            $("body").on("keyup", ".prev-plan-value, .new-plan-value", function () {
+                var v = this.value
+                var row = $(this).parents("tr")
+
+                var prev_plan_value = row.find(".prev-plan-value").val()
+                var new_plan_value = row.find(".new-plan-value").val()
+                if (prev_plan_value.length == 0 || new_plan_value.length == 0) {
+                    取消选择某一行(row, prev_plan_value, new_plan_value)
+                    return
+                }
+
+                row.addClass(_selected_row)
+
+                var cb = row.find(".cb-select")[0]
+                cb.setAttribute("checked", "checked")
+                cb.checked = true
+
+                快速保存并返回指令预览()
+            })
+
+
+            // 取消选择某一行,设置为[不选中状态]
+            $(".cb-select").change(function () {
+                var row = $(this).parents("tr")
+                var prev_plan_value = row.find(".prev-plan-value").val()
+                var new_plan_value = row.find(".new-plan-value").val()
+
+                if (this.checked) {
+                    if (prev_plan_value.length == 0 || new_plan_value.length == 0) {
+                        取消选择某一行(row, prev_plan_value, new_plan_value)
+                        return
+                    }
+
+                    row.addClass("selected-row")
+                    快速保存并返回指令预览()
+                } else {
+                    取消选择某一行(row, prev_plan_value, new_plan_value)
+                }
+
+            })
+
+
+            // 修改或补充指令的保存
+            $("#btnSave").click(function () {
+
+                var order_title = $("#txtOrderTitle").val()
+                if (order_title.length == 0) {
+                    alert("请填入指令的标题")
+                    return false
+                }
+
+                var order_text = $("#textarea2").val()
+                if (order_text.length == 0) {
+                    alert("请选择指令")
+                    return false
+                }
+
+
+                $.ajax({
+                    type: "post",
+                    contentType: "application/json",
+                    data: JSON.stringify({ root_mesid: root_mesid, new_order_title: order_title }),
+                    url: "/ZhiLingManage/ZhiLing/修改指令提交后操作_将临时表的指令作为新指令发送到MES",
+                    success: function (response) {
+                        if (response == 1) {
+                            window.parent.window.location.reload()
+                        }
+                    }
+                })
+            })
+
+        })
+
+
+        function 取消选择某一行(row, 上次计划量, 新计划量 ) {
+            var index = row.attr("index-value")
+            var target = 已定义的预指令[index]
+            target.PrevPlanValue = 上次计划量
+            target.PlanValue = 新计划量
+            target.IsSelected = false
+
+            console.log('快速删除什么也不填的某一行')
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                //url: "/ZhiLingManage/ZhiLing/装置调整_不选择一个指令并返回最新的指令字符串",
+                url: "/ZhiLingManage/ZhiLing/装置调整_追加指令时_快速删除什么也不填的某一行",
+                data: JSON.stringify({ one: target }),
+                success: function (response) {
+                    row.removeClass("selected-row")
+                    $("#textarea2").val(response)
+
+                    var cb = row.find(".cb-select")[0]
+                    cb.removeAttribute("checked")
+                    cb.checked = false
+
+                    if (window.opener == null) {
+                    } else {
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response)
+                    }
+                }
+            })
+        }
+    </script>
+
+</body>
+</html>
+

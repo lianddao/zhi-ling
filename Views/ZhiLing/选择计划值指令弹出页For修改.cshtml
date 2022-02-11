@@ -1,0 +1,462 @@
+﻿@using System;
+@using System.Collections;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Domain.Entity.PlanOrderManageEntity;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using PlanExecut.Repository.ZhiLingManage;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>修改计划值指令</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        table {
+            font-size: 13px;
+        }
+
+            table input[type=text] {
+                width: 4em;
+            }
+
+        .input-group {
+            width: 15em;
+        }
+
+            .input-group * {
+                font-size: 13px;
+            }
+
+        .input-group-text {
+            background-color: white;
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+        }
+
+        .selected-row {
+            background-color: yellow;
+        }
+    </style>
+</head>
+
+
+
+@{
+    // 从 [TianBaoContent] 取得最新的 [MESID]
+    var first = new TianBiaoContentRepository().IQueryable().FirstOrDefault();
+    var mesid = first.MESID;
+
+    var service = new ZhiLingService();
+    var 页面数据 = service.页面数据_下指令For帆软报表DTO(mesid);   // 补充指令
+    var 已定义的预指令 = 页面数据.已定义的预指令;
+
+    var groups = 已定义的预指令.GroupBy(i => i.DeviceCode).Select(j => j.Key).ToList();
+
+    var 指令字符串 = 页面数据.指令字符串;
+
+    var defaultDanYuan = Request.Params ["DanYuan"];
+    if (string.IsNullOrEmpty(defaultDanYuan) == false) {
+        已定义的预指令 = 已定义的预指令.Where(i => i.DeviceCode == defaultDanYuan).ToList();
+    }
+
+    var 只显示非空的点位号 = Request.Params ["ShowNotNull"] == "true" ? true : false;
+    if (只显示非空的点位号) {
+        已定义的预指令 = 已定义的预指令.Where(i => !string.IsNullOrWhiteSpace(i.DianWeiHao)).ToList();
+    }
+    else {
+    }
+
+    foreach (var one in 已定义的预指令) {
+        one.Index = 已定义的预指令.IndexOf(one);
+    }
+
+}
+
+
+
+<body>
+
+
+    <div>
+
+
+        @* ----------------------------------- 左侧预览层 ----------------------------------- *@
+        <div style="position: fixed; top:1em; bottom:1em; left:1%; width:19%; overflow: auto; display:none; ">
+            <textarea id="textarea1" style="width:100%; height:70%; font-size:small" readonly>@指令字符串</textarea>
+        </div>
+        @* ----------------------------------- 左侧预览层 ----------------------------------- *@
+
+
+
+
+
+        @* ----------------------------------- 右侧表格数据 ----------------------------------- *@
+        <div style="position:fixed; top:0.5em; right:0.5em; bottom:0.5em; left:0.5em; overflow:auto;">
+            @*<div style="position:fixed; top:0.5em; right:1%; bottom:0.5em; left:21%; overflow:auto;">*@
+            <table class="table">
+                <caption>修改计划值指令</caption>
+                <thead style="position:sticky; top:0; background-color:white;">
+                    <tr>
+                        <th>
+                            <select id="selDanYuan" title="单元">
+                                <option value="">单元</option>
+                                @{
+                                    foreach (var group in groups) {
+                                        <option value="@group" selected="@(defaultDanYuan == group)">@group</option>
+                                    }
+                                }
+                            </select>
+                        </th>
+                        <th class="header">指令名称</th>
+                        <th class="header">
+                            执行日期
+                            <input type="text" style="width:6.5em;" name="OrderStartTime" id="date_timepicker_start" autocomplete="off" placeholder="开始日期" />
+                            -
+                            <input type="text" style="width:6.5em;" name="OrderEndTime" id="date_timepicker_end" autocomplete="off" placeholder="结束日期" />
+                        </th>
+                        <th class="header">计划值</th>
+                        <th class="header">≥下限值</th>
+                        <th class="header">≤上限值</th>
+                        <th class="header">
+                            <label><input type="checkbox" id="cbDianWeiHao" checked="@只显示非空的点位号" /> 非空的点位号</label>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        foreach (var one in 已定义的预指令) {
+                            var 空点位号 = @one.CeXian.PointNumOrValue.Length == 0;
+
+                            <tr class="data-row @(空点位号 ? "null-row": string.Empty) @(one.IsSelected ? "selected-row" : string.Empty)" danyuan="@one.DeviceCode" title="@one.DianWeiType, @one.DianWeiHao, @one.DianWeiName">
+                                @{
+                                    <td>@one.DeviceCode</td>
+                                    <td><label><input type="checkbox" class="cb-select" checked="@one.IsSelected" index-value="@one.Index" /> @one.OrderTitle</label></td>
+                                    <td>
+                                        <input type="text" class="start-time" style="width:6.5em" value="@one.执行开始日期" />
+                                        -
+                                        <input type="text" class="end-time" style="width:6.5em" value="@one.执行结束日期" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="plan-v" value="@one.PlanValue" autocomplete="off" />
+                                        ±
+                                        <input type="text" class="up-low-v" value="@one.ShangXiaXian" autocomplete="off" />
+                                        @one.Unit
+                                    </td>
+                                    <td><input type="text" class="low-v" value="@one.LowValue" autocomplete="off" /></td>
+                                    <td><input type="text" class="up-v" value="@one.UpValue" autocomplete="off" /></td>
+
+                                    <td>
+                                        @{
+                                            if (one.CeXian.PointNumOrValue.Length == 0) {
+                                                <i class="fa fa-warning" style="color:red; font-size:1.5em;"></i>
+                                            }
+                                            else {
+                                                <i class="fa fa-cog" style="color:green; font-size:1.5em;"></i>
+                                            }
+                                        }
+
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        @* ----------------------------------- 右侧表格数据 ----------------------------------- *@
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <script>
+
+        var 已定义的预指令 = @Html.Raw(已定义的预指令.ToJson());
+
+
+        @* ----------快速保存计划值指令到临时表并返回对应的指令字符串 ---------- *@
+        function 快速保存并返回指令预览() {
+            var 用户选择的 = []
+            $(".cb-select:checked").each(function () {
+                var index = parseInt($(this).attr("index-value"))
+                var one = 已定义的预指令[index]
+
+                var row = $(this).parents("tr")
+                one.OrderStartTime = row.find('.start-time').val()
+                one.OrderEndTime = row.find('.end-time').val()
+                one.PlanValue = row.find('.plan-v').val()
+                one.ShangXiaXian = row.find('.up-low-v').val()
+                one.LowValue = row.find('.low-v').val()
+                one.UpValue = row.find('.up-v').val()
+                one.IsSelected = true
+
+                用户选择的.push(one)
+            })
+
+            if (用户选择的.length == 0) {
+                return false
+            }
+
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/QuickSaveValueOrderTo_ZhiLing",
+                data: JSON.stringify({ selectedList: 用户选择的 }),
+                success: function (response) {
+                    $("#textarea1").val(response.ZhiLingText)
+
+                    debugger
+
+                    // 更新对应的行数据!
+                    $.each(response.SelectedList, function (i,n) {
+                        var index = n.Index
+                        var obj = 已定义的预指令[index]
+                        obj.ID = n.ID
+                    })
+
+
+                    if (window.opener == null) {
+                        console.log(response.ZhiLingText)
+                    } else {
+                        debugger
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response.ZhiLingText)
+                    }
+                }
+            })
+        }
+        @* ----------快速保存计划值指令到临时表并返回对应的指令字符串 ---------- *@
+
+
+
+        function 行是否有效(target) {
+            var one = {}
+            var row = $(target).parents("tr")
+            one.PlanValue = row.find('.plan-v').val()
+            one.UpValue = row.find('.up-v').val()
+            one.LowValue = row.find('.low-v').val()
+            var len = one.PlanValue.length + one.UpValue.length + one.LowValue.length
+            return len !== 0
+        }
+
+
+        function 取消选择某一行(row) {
+            if ($(".cb-select:checked").length == 0) {
+                alert("至少要保留一条指令")
+                row.find(":checkbox")[0].checked=true
+                return
+            }
+
+            var index = row.find(":checkbox").attr("index-value")
+            var target = 已定义的预指令[index]
+            target.IsSelected = false
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/CancelSelected_ZhiLing",
+                data: JSON.stringify({ one: target }),
+                success: function (response) {
+                    row.removeClass("selected-row")
+                    $("#textarea1").val(response.ZhiLingText)
+
+                    // 更新对应的行数据!
+                    $.each(response.SelectedList, function (i, n) {
+                        var index = n.Index
+                        var obj = 已定义的预指令[index]
+                        obj.ID = -1 // !
+                    })
+
+                    if (window.opener == null) {
+                        console.log(response.ZhiLingText)
+                    } else {
+                        var parentWindow = window.opener.window
+                        parentWindow.弹出窗口的回调(response.ZhiLingText)
+                    }
+                }
+            })
+        }
+
+
+
+
+
+        $(function () {
+
+            var $checkboxs = $(".data-row :checkbox")
+
+
+
+            @* -------------------- 指令选择事件 -------------------- *@
+            $checkboxs.change(function () {
+                var row = $(this).parents("tr")
+
+                // 没有填入值,不能选中
+                var planValue = row.find('.plan-v').val()
+                var upValue = row.find('.up-v').val()
+                var lowValue = row.find('.low-v').val()
+                var len = (planValue + upValue + lowValue).length
+                if (len === 0) {
+                    this.checked = false
+                    return
+                }
+
+                if (this.checked) {
+                     快速保存并返回指令预览()
+                }
+                else {
+                    取消选择某一行(row)
+                }
+            })
+            @* -------------------- 指令选择事件 -------------------- *@
+
+
+
+
+            // 键入必填项后自动选中该指令，改变行颜色
+            $("body").on("change", ".plan-v, .up-low-v, .up-v, .low-v, .start-time, .end-time", function () {
+                var v = this.value
+                var row = $(this).parents("tr")
+                var cb = row.find(":checkbox")[0]
+
+                var aa = $(this).is(".up-low-v") && 行是否有效(this)
+
+                if (aa || 行是否有效(this) || v.length > 0) {
+                    cb.checked = true
+                    row.addClass("selected-row")
+                    快速保存并返回指令预览()
+                } else {
+                    cb.checked = false
+                    取消选择某一行(row)
+                }
+            })
+
+
+            // 装置单元切换
+            var $selDanYuan = $("#selDanYuan")
+            $selDanYuan.change(function () {
+                @{
+                    var aaa = string.Empty;
+                    if (只显示非空的点位号) {
+                        aaa = "/ZhiLingManage/ZhiLing/选择计划值指令弹出页For修改?ShowNotNull=true&DanYuan=";
+                    } else {
+                        aaa = "/ZhiLingManage/ZhiLing/选择计划值指令弹出页For修改?ShowNotNull=false&DanYuan=";
+                    }
+                }
+                var href = "@Html.Raw(aaa)" + this.value
+                location.href = href
+            })
+
+
+            // 只显示有点位号的行
+            var $cbDianWeiHao = $("#cbDianWeiHao")
+            $cbDianWeiHao.change(function () {
+                debugger
+                @{
+                    var bbb = string.Empty;
+                    if (defaultDanYuan == null) {
+                        bbb = "/ZhiLingManage/ZhiLing/选择计划值指令弹出页For修改?ShowNotNull=";
+
+                    } else {
+                        bbb = string.Format("/ZhiLingManage/ZhiLing/选择计划值指令弹出页For修改?DanYuan={0}&ShowNotNull=", defaultDanYuan);
+                    }
+
+                }
+                var href = "@Html.Raw(bbb)" + this.checked
+                location.href = href
+            })
+
+
+        })
+
+    </script>
+
+
+
+
+
+
+    @* ----------------------------------- 日期控件设置 ----------------------------------- *@
+    <link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+    <script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            jQuery.datetimepicker.setLocale('ch')
+
+            jQuery('#date_timepicker_start').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        maxDate: jQuery('#date_timepicker_end').val() ? jQuery('#date_timepicker_end').val() : false
+                    })
+                },
+                onSelectDate: function (ct, $i) {
+                    $(".start-time").val($i.val())
+                },
+                timepicker: false
+            })
+
+            jQuery('#date_timepicker_end').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        minDate: jQuery('#date_timepicker_start').val() ? jQuery('#date_timepicker_start').val() : false
+                    })
+                },
+                onSelectDate: function (ct, $i) {
+                    $(".end-time").val($i.val())
+                },
+                timepicker: false
+            })
+
+            jQuery(".start-time").datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct, $el) {
+                    var endElement = $el.siblings(".end-time")
+                    this.setOptions({
+                        maxDate: endElement.val() ? endElement.val() : false
+                    })
+                },
+                timepicker: false
+            })
+
+            jQuery(".end-time").datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct, $el) {
+                    var startElement = $el.siblings(".start-time")
+                    this.setOptions({
+                        minDate: startElement.val() ? startElement.val() : false
+                    })
+                },
+                timepicker: false
+            })
+
+        })
+    </script>
+    @* ----------------------------------- 日期控件设置 ----------------------------------- *@
+
+</body>
+</html>
+
+
+
+
+
+

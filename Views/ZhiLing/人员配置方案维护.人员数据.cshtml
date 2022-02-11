@@ -1,0 +1,286 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+@using PlanExecut.Domain.Entity.ZhiLingManage;
+@using System.Diagnostics;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>人员配置方案维护.人员数据</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        table {
+            font-size: small;
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        fieldset {
+            padding: 2em 1px;
+        }
+
+        legend {
+            font-size: xx-small;
+        }
+
+        .edit-row {
+            border: dashed 1px #ff6a00;
+            display: none;
+        }
+
+        td.longtext {
+            word-wrap: break-word;
+        }
+
+        .header {
+            position: -webkit-sticky;
+            position: sticky;
+            background-color: white !important;
+            top: 0;
+        }
+
+        .clicked {
+            border-left: solid;
+        }
+
+        .disabled {
+            color: #aaa;
+        }
+
+        .bu-men .badge {
+            position: absolute;
+            right: 0;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+
+    List<string> 左侧部门数据 = service.获取部门数据();
+
+    string 默认部门 = 左侧部门数据.First();
+
+    List<MesUser> 所有人员数据 = service.获取指定部门的用户(null);
+
+    List<MesUser> 右侧人员数据 = 所有人员数据.Where(i => i.DepartName == 默认部门).ToList();
+
+
+    string 为那个目标选择人员 = Request.QueryString ["arg"];
+
+    int a = 0;
+
+}
+
+
+
+<body>
+
+    <!-- 1. 左侧: 部门 -->
+    <div style="position: fixed; top:1em; bottom:1em; left:1em; width:19em; overflow: auto;">
+        <table class="table" style="table-layout:fixed;">
+            @{
+                foreach (var one in 左侧部门数据) {
+                    int index = 左侧部门数据.IndexOf(one);
+                    <tr>
+                        <td class="bu-men" data-value="@one" data-index="@index">
+                            <label>@one</label>
+                            <span class="badge bg-danger"></span>
+                        </td>
+                    </tr>
+                }
+            }
+        </table>
+    </div>
+
+
+
+
+
+
+
+
+    <!-- 2. 右侧: 部门的人 -->
+    <div style="position:fixed; top:1em; right:1em; bottom:1em; left:21em; padding-left:1em; border-left:dashed 1px #333; overflow:auto;">
+
+        @{
+            foreach (var buMen in 左侧部门数据) {
+                int bu_men_index = 左侧部门数据.IndexOf(buMen);
+                string 样式 = null;
+                if (buMen == 默认部门) {
+                    样式 = string.Empty;
+                }
+                else {
+                    样式 = "display:none;";
+                }
+                <table id="table-@bu_men_index" class="table user-table" style="table-layout:fixed; @样式">
+                    @{
+                        var 对应人员 = 所有人员数据.Where(i => i.DepartName == buMen);
+
+                        foreach (var one in 对应人员) {
+                            <tr>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" data-index="@one.Index" bu-men-index="@bu_men_index" />
+                                        @one.DisplayName
+                                    </label>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </table>
+            }
+        }
+
+
+    </div>
+
+
+
+
+    <script>
+
+        var 所有人员数据 = @Html.Raw(所有人员数据.ToJson())
+
+        var $tableRenYuan
+
+        var 选择的数据 = []
+
+        var 为那个目标选择人员 = '@(为那个目标选择人员)'
+
+        $(function () {
+
+            // 0. 初始化
+            $tableRenYuan = $("#tableRenYuan")
+
+            var $frame
+            var $parentBody = $(window.parent.document.documentElement.getElementsByTagName("body"))
+            var 有选中数据的第一个部门td = undefined
+
+            if (为那个目标选择人员 == "执行人") {
+                $frame = $parentBody.find("#iframe1")
+            }
+            else {
+                $frame = $parentBody.find("#iframe2")
+            }
+
+
+
+            // 定义事件1: 将对应人员表格显示出来
+            $(".bu-men").click(function () {
+                var index = $(this).attr("data-index")
+                $(".user-table:visible").hide()
+                $("#table-" + index).show()
+
+                // 设置显示效果
+                $(".bu-men").each(function () {
+                    var i = $(this).find("i")
+                    if (i.length == 1) {
+                        i.remove()
+                    }
+                })
+                $(this).prepend("<i>•</i>")
+            })
+
+
+
+            // 定义事件2: 选择人员事件
+            $("body").on("change", ":checkbox", function () {
+                 选择的数据 = []
+                $(":checked").each(function (i,n) {
+                    var index = $(n).attr("data-index")
+                    var one = 所有人员数据[index]
+                    选择的数据.push(one)
+                })
+
+                // 1. 父窗口的对应文本框, 存放选中的人员姓名及其(对于所有人员数据的)索引
+                var str = "", indexString = ""
+                $.each(选择的数据, function (i,n) {
+                    str += n.DisplayName + "\n"
+                    indexString += n.Index + "\n"
+                })
+                var 文本值 = $.trim(str)
+                var txtZhiXingRen = $parentBody.find("#txtZhiXingRen"), hidZhiXingRen = $parentBody.find("#hidZhiXingRen")
+                var txtYueZhiRen = $parentBody.find("#txtYueZhiRen"), hidYueZhiRen = $parentBody.find("#hidYueZhiRen")
+
+                if (为那个目标选择人员 == "执行人") {
+                    txtZhiXingRen.val(文本值)
+                    hidZhiXingRen.val(indexString)
+                }
+                else {
+                    txtYueZhiRen.val(文本值)
+                    hidYueZhiRen.val(indexString)
+                }
+
+                $frame.attr("附加值", indexString) // ★★★
+
+
+                // 3. 设置选中显示效果
+                var bu_men_index = $(this).attr("bu-men-index")
+                var bu_men_td = $(".bu-men[data-index=" + bu_men_index + "]")
+                var 所选部门的被选中人员复选框 = $(":checked[bu-men-index=" + bu_men_index + "]")
+                var badge = bu_men_td.find(".badge")
+                if (所选部门的被选中人员复选框.length > 0) {
+                    badge.text(所选部门的被选中人员复选框.length)
+                }
+                else {
+                    badge.text("")
+                }
+            })
+
+
+
+            // 3. 加载后, 将之前选中的值呈现
+            var 附加值 = $frame.attr("附加值")
+            if (附加值 != undefined) {
+                附加值 = $.trim(附加值).split('\n')
+                $.each(附加值, function (i, n) {
+                    // 设置checkbox选中
+                    var cb = $(":checkbox[data-index=" + n + "]")
+                    cb[0].checked = true
+
+
+                    // 在部门旁边显示选中人员的数量
+                    var bu_men_index = cb.attr("bu-men-index")
+                    var bu_men_td = $(".bu-men[data-index=" + bu_men_index + "]")
+
+                    if (bu_men_td.attr("计数") == undefined) {
+                        bu_men_td.attr("计数", 0)
+                    }
+
+                    var aaa = parseInt(bu_men_td.attr("计数")) + 1
+                    bu_men_td.attr("计数", aaa)
+                    bu_men_td.find(".badge").text(aaa)
+
+                    if (i == 0) {
+                        // 加载后,为有选中人员的部门设置一个点的显示效果
+                        bu_men_td.prepend("<i>•</i>")
+                        有选中数据的第一个部门td = bu_men_td
+                    }
+                })
+            }
+            if (有选中数据的第一个部门td == undefined) {
+
+            } else {
+                有选中数据的第一个部门td[0].click()
+            }
+
+        })
+    </script>
+
+</body>
+</html>

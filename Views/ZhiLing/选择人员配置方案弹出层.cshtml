@@ -1,0 +1,675 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>1.选择人员配置方案 2.选择执行日期 3.下指令</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+    <style>
+        table {
+            font-size: 13px;
+        }
+
+        .header th {
+            position: sticky;
+            top: 0;
+        }
+
+        .fa-check {
+            color: green;
+        }
+
+        .fa-cog {
+            cursor: pointer;
+        }
+
+
+        .mu-ban {
+            position: relative;
+            border: solid 1px;
+            border-radius: 0.5em;
+            padding: 1em;
+            margin-bottom: 0.5em;
+            box-shadow: 3px 3px 1px #aaa
+        }
+
+            .mu-ban span {
+                font-size: 0.5em;
+                margin-left: 2em;
+            }
+
+        p {
+            margin: 0;
+        }
+
+            p label {
+                margin-left: 1em;
+            }
+
+        fieldset {
+            border: solid 1px #ddd;
+            border-radius: 0.5em;
+            box-shadow: 3px 3px 3px #888;
+            margin: 0.5em 0.5em 0;
+            padding: 0.5em;
+        }
+
+        legend {
+            box-shadow: 0px 1px 1px #ddd;
+        }
+
+        .no-use-row {
+            text-decoration: line-through;
+            color: #888;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+    var 人员配置方案数据 = service.获取人员配置方案数据().Where(i => i.IsEnable).ToList();
+
+    var 下达指令前的指令预览文本值 = service.下指令前的指令预览文本值();
+
+    var 待发送指令 = service.下指令前判断_待发送的指令();
+    int 待发送指令数量 = 待发送指令.Count();
+
+    var start_day = DateTime.Now.ToDateString();
+    var end_day = DateTime.Now.AddDays(7).ToDateString();
+    if (待发送指令数量 > 0) {
+        start_day = 待发送指令 [0].OrderStartTime.ToDateString();
+        end_day = 待发送指令 [0].OrderEndTime.ToDateString();
+    }
+
+    var 默认方案 = 人员配置方案数据.FirstOrDefault(i => i.IsDefault);
+    if (默认方案 == null) {
+        默认方案 = 人员配置方案数据 [0];
+    }
+}
+
+
+
+<body>
+
+
+
+    @{
+        // 没有指令需要发送, 显示遮罩层, 随后关闭此弹出窗口
+
+        if (待发送指令数量 == 0) {
+            <div class="modal-backdrop" style="opacity:0.5;">
+                <h3 style="color:white; position:fixed; z-index:1041; width:100vw; line-height:50vh; text-align:center;">没有待发送的指令, <label id="lblDaoShu">5</label> 秒后关闭</h3>
+                <h3> </h3>
+            </div>
+            <script>
+                var $lblDaoShu = $("#lblDaoShu")
+                var closeTimer = setInterval(function () {
+                    var v = parseInt($lblDaoShu.text())
+                    v--
+                    $lblDaoShu.text(v)
+                    console.log(v)
+
+                    if (v === 0) {
+                        console.log("close")
+                        clearInterval(closeTimer)
+                        close()
+                    }
+                }, 1000)
+
+            </script>
+        }
+    }
+
+
+
+
+
+
+    <!-- 1. 左侧: 准备提交MES指令 -->
+    <div style="position:fixed; top:0; bottom:1em; left:1em; width:45vw; overflow: auto;">
+        <fieldset style="position:absolute; top:0; bottom:0; left:0; right:0;">
+            <legend style="font-size:13px; font-weight:bold;">待发送到MES的指令</legend>
+
+            <div style="position:absolute; top:3em; bottom:4em; left:0; right:0;">
+                <table class="table" style="height:100%;">
+                    <tr style="height:2em;">
+                        <td>人员配置</td>
+                        <td>
+                            <label>
+                                方 &nbsp; 案： <label id="lbl0" style="text-decoration:underline;">@默认方案.RemarkName</label>
+                                <div style="height:0.5em;"></div>
+                                执行人： <label id="lbl1" style="text-decoration:underline;">@默认方案.Executor</label>
+                                <div style="height:0.5em;"></div>
+                                阅知人： <label id="lbl2" style="text-decoration:underline;">@默认方案.Knower</label>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr style="height:2em;">
+                        <td style="width:6em;">执行日期</td>
+                        <td>
+                            <input id="txtStartDay" value="@start_day" type="text" placeholder="开始日期" maxlength="10" style="width:7em;" />
+                            00:00:00
+                            <i class="fa fa-exchange" style="color: #aaa; margin: 0 0.2em;"></i>
+                            <input id="txtEndDay" value="@end_day" type="text" placeholder="结束日期" maxlength="10" style="width:7em;" />
+                            00:00:00
+                        </td>
+                    </tr>
+                    <tr style="height:2em;">
+                        <td>指令标题</td>
+                        <td>
+                            <textarea id="txtZhiLingTitle" placeholder="指令的标题" style="width:100%; height:2em;"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>指令内容</td>
+                        <td>
+                            <textarea id="txtZhiLing" style="font-size:13px; width:100%; height:100%; margin-bottom:1em;" readonly>@下达指令前的指令预览文本值</textarea>
+                        </td>
+                    </tr>
+                </table>
+                <div style="text-align:center;">
+                    @{
+                        if (待发送指令数量 > 0) {
+                            <button id="btnXiaZhiLing" type="button" style="width:50%; margin:auto;" disabled>下指令</button>
+                        }
+                        else {
+                            <button disabled type="button" style="width: 50%; margin: auto;">下指令</button>
+                        }
+                    }
+                </div>
+            </div>
+        </fieldset>
+    </div>
+
+
+
+    <!-- 2. 右侧: 选择人员配置方案 -->
+    <div style="position:fixed; top:0; right:1em; bottom:1em; left:47vw; overflow:auto; ">
+
+        <table id="table2" class="table table-hover" style="table-layout:fixed">
+            <thead>
+                <tr class="header">
+                    <th style="width:1.5em;"></th>
+                    <th style="width:5em;">方案名</th>
+                    <th>执行人, 阅知人</th>
+                    <th style="width:4em; text-align:center;">默认</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    foreach (var one in 人员配置方案数据) {
+                        var num = 人员配置方案数据.IndexOf(one) + 1;
+
+
+                        <tr>
+                            <td>
+                                <div>
+                                    @{
+                                        if (one.IsDefault) {
+                                            <input class="form-check-input" type="radio" name="userConfig" id="@("rb_"+num)" value="@one.ID" checked>
+                                        }
+                                        else {
+                                            <input class="form-check-input" type="radio" name="userConfig" id="@("rb_"+num)" value="@one.ID">
+                                        }
+                                    }
+                                    <label class="form-check-label" for="@("rb_"+num)"></label>
+                                </div>
+                            </td>
+                            <td>
+                                @one.RemarkName
+                            </td>
+                            <td>
+                                <p style="margin-bottom:0.5em;">
+                                    执行人:
+                                    <label>@one.Executor</label>
+                                </p>
+                                <p>
+                                    阅知人:
+                                    <label>@one.Knower</label>
+                                </p>
+
+                            </td>
+                            <td>
+                                @{
+                                    if (one.IsDefault) {
+                                        <i class="fa fa-check" data-id="@one.ID"></i>
+                                    }
+                                    else {
+                                        <i class="fa fa-cog" title="设为默认" data-id="@one.ID"></i>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+
+
+    <script>
+
+        var 人员配置方案数据 = @Html.Raw(人员配置方案数据.ToJson());
+
+        var 重叠的指令 = []
+
+
+        function 检测() {
+            $btnXiaZhiLing.attr("disabled",true).text("检测中")
+            var start_day = $txtStartDay.val()
+            var end_day = $txtEndDay.val()
+
+            $.ajax({
+                type: "post",
+                url: "/ZhiLingManage/ZhiLing/修改临时指令的日期并判断是否已经存在",
+                data: { startDay: start_day, endDay: end_day },
+                success: function (response) {
+                    弹出层待处理的指令 = response.YuZhiLingTemp_List
+
+                    if (response.存在重复项) {
+                        禁止提交(response)
+                    }
+                    else {
+                        允许提交()
+                    }
+                }
+            })
+        }
+
+
+
+
+
+
+
+
+        var $txtStartDay, $txtEndDay, $btnXiaZhiLing
+        var $lbl0, $lbl1, $lbl2
+
+
+        $(function () {
+            $txtStartDay = $("#txtStartDay")
+            $txtEndDay = $("#txtEndDay")
+            $txtZhiLingTitle = $("#txtZhiLingTitle")
+            $btnXiaZhiLing = $("#btnXiaZhiLing")
+            $lbl0 = $("#lbl0")
+            $lbl1 = $("#lbl1")
+            $lbl2 = $("#lbl2")
+
+
+            // 页面加载时,运行一次检测,方便测试
+            检测()
+
+
+
+            $("#table2").on("click", "tbody tr", function () {
+                if ($(event.target).is(".fa-cog") == false) {
+                    var rb = $(this).find(":radio")[0]
+                    rb.checked = true
+
+                    var id = rb.value
+                    var one= $.grep(人员配置方案数据, function (n,i) {
+                        return n.ID==id
+                    })[0]
+
+                    $lbl0.text(one.RemarkName)
+                    $lbl1.text(one.Executor)
+                    $lbl2.text(one.Knower)
+                }
+            })
+
+
+            $btnXiaZhiLing.click(function () {
+                var startDay = $txtStartDay.val()
+                var endDay = $txtEndDay.val()
+                var zhiLingTitle = $.trim($txtZhiLingTitle.val())
+                var userConfigId = $(".fa-check").attr("data-id")
+
+                if (startDay.length == 0) {
+                    $txtStartDay.focus();
+                    alert("请填写开始日期")
+                    return false
+                }
+
+                if (endDay.length == 0) {
+                    $txtEndDay.focus()
+                    alert("请填写结束日期")
+                    return false
+                }
+
+                if (zhiLingTitle.length == 0) {
+                    $txtZhiLingTitle.focus();
+                    alert("请填写指令的标题")
+                    return false
+                }
+
+                var post_data = { zhiLingTitle: zhiLingTitle, startDay: startDay, endDay: endDay, userConfigId: userConfigId, 被舍弃的指令: 被舍弃的指令 }
+
+                $.ajax({
+                    type: "post",
+                    url: "/ZhiLingManage/ZhiLing/XiaZhiLing",
+                    contentType: "application/json",
+                    data: JSON.stringify(post_data),
+                    contentType: "application/json",
+                    success: function (response) {
+                        alert("指令下达成功")
+                        close()
+                    }
+                })
+            })
+
+
+            // 更改新的默认人员配置方案
+            $("body").on("click", ".fa-cog", function () {
+                $(".fa-check").removeClass("fa-check").addClass("fa-cog").attr("title", "设为默认")// 改变之前选中行的样式
+
+                var target = $(this)
+                var userConfigId = $(this).attr("data-id")
+
+                $.ajax({
+                    type: "post",
+                    url: "/ZhiLingManage/ZhiLing/SetDefaultUserConfig",
+                    data: { id: userConfigId},
+                    success: function (response) {
+                        if (response == 1) {
+                            target.removeClass("fa-cog").addClass("fa-check").removeAttr("title")   // 改变选中行的样式
+                        }
+                    }
+                })
+            })
+
+
+        })
+
+
+
+
+    </script>
+
+
+
+
+
+
+
+
+
+    <link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+    <script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+    <script type="text/javascript">
+        $(function () {
+            jQuery.datetimepicker.setLocale('ch')
+
+            jQuery('#txtStartDay').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        maxDate: jQuery('#txtEndDay').val() ? jQuery('#txtEndDay').val() : false
+                    })
+                },
+                onSelectDate: 检测,
+                timepicker: false
+            })
+
+            jQuery('#txtEndDay').datetimepicker({
+                format: 'Y-m-d',
+                onShow: function (ct) {
+                    this.setOptions({
+                        minDate: jQuery('#txtStartDay').val() ? jQuery('#txtStartDay').val() : false
+                    })
+                },
+                onSelectDate: 检测,
+                timepicker: false
+            })
+
+
+        })
+    </script>
+
+
+
+
+
+
+
+    <div id="重叠模板" style="display:none;">
+        <fieldset class="mu-ban">
+            <div>
+                <label>旧指令: </label>
+                <b style="font-weight:normal;">101单元 常顶终馏点由 11℃ 调整为 22℃</b>
+                <span>2021年10月15日</span>
+            </div>
+            <div>
+                <label>新指令: </label>
+                <b style="font-weight:normal">101单元 常顶终馏点由 1℃ 调整为 2℃</b>
+                <span>2021年10月15日</span>
+            </div>
+
+            <div style="border-top:dashed 1px; margin-top:1em; text-align:right; padding-top:1px;">
+                <label style="margin-right:1em;">
+                    <input type="radio" name="操作" value="使用[新指令]" class="rb1" />
+                    使用[新指令]
+                </label>
+
+                <label style="margin-right:1em;">
+                    <input type="radio" name="操作" value="放弃[新指令]" class="rb2" />
+                    放弃[新指令]
+                </label>
+
+                <button class="btn-confirm" disabled>确认操作</button>
+            </div>
+        </fieldset>
+    </div>
+
+    <script>
+        var 弹出层待处理的指令 = []
+
+
+
+        function 禁止提交(dto) {
+            if (dto == null) {
+                return
+            }
+
+
+            待发送指令 = dto.YuZhiLingTemp_List
+            运行中指令 = dto.YuZhiLing_List
+
+            弹出层待处理的指令 = 待发送指令
+
+            $btnXiaZhiLing.attr("disabled", true).text("等待处理...")
+
+            var div123 = $("#div123")
+            div123.empty()
+
+
+
+            $.each(待发送指令, function (i, n) {
+                var fieldset = $("#重叠模板").find("fieldset").clone()
+
+                // 运行中指令
+                var 运行中 = 运行中指令[i]
+                var row_1 = fieldset.find("div").eq(0)
+                row_1.attr("title", 运行中.ID)
+                var title_1 = fieldset.find("b").eq(0)
+                title_1.text(运行中.直观值)
+                var day_1 = fieldset.find("span").eq(0)
+                day_1.text(运行中.执行开始日期 + " ↔ " + 运行中.执行结束日期)
+
+                // 待发送指令
+                var 待发送 = n
+                var row_2 = fieldset.find("div").eq(1)
+                row_2.attr("title", 待发送.ID)
+                var title_2 = fieldset.find("b").eq(1)
+                title_2.text(待发送.直观值)
+                var day_2 = fieldset.find("span").eq(1)
+                day_2.text(待发送.执行开始日期 + " ↔ " + 待发送.执行结束日期)
+
+                //
+                var btn = fieldset.find("button")
+                btn.attr("data-id", 待发送.ID)
+                fieldset.find(":radio").attr("name","rb"+i)
+
+                //
+                div123.append(fieldset)
+            })
+
+            重叠指令确认弹出层.show()
+        }
+
+
+        function 允许提交() {
+            $btnXiaZhiLing.removeAttr("disabled").text("下指令")
+        }
+
+
+
+        var 被舍弃的指令 = []
+
+
+        $(function () {
+
+
+
+
+            $("body").on("click", ".btn-confirm", function () {
+                if ($(this).parent().find(":checked").length == 0) {
+                    return
+                }
+
+
+                var btn = $(this)
+                var data_id = btn.attr("data-id")
+
+
+                //
+                var target = $.grep(弹出层待处理的指令, function (n) {
+                    return n.ID == data_id
+                })[0]
+                var pos = 弹出层待处理的指令.indexOf(target)
+
+
+                //
+                if ($(this).parent().find(":checked")[0].checked) {
+                    // 将这个[待发送指令]替换旧指令
+                    弹出层待处理的指令.splice(pos, 1)
+                    btn.parents("fieldset").remove()
+                    if (弹出层待处理的指令.length == 0) {
+                        重叠指令确认弹出层.hide()
+                        允许提交()
+                    }
+                }
+                else {
+                    // 舍弃这个指令
+                    var one = $.grep(被舍弃的指令, function (n, i) {
+                        return n.ID == data_id
+                    })
+                    if (one.length == 0) {
+                        被舍弃的指令.push(target)
+                    }
+
+
+                    // 获取 '传入参数' 对应的指令字符串
+                    $.ajax({
+                        type: "post",
+                        url: "/ZhiLingManage/ZhiLing/帆软报表提交时_舍弃某个临时指令后_返回对应的指令字符串",
+                        contentType: "application/json",
+                        data: JSON.stringify({ 被舍弃的指令: 被舍弃的指令 }),
+                        success: function (response) {
+                            // 更新指令字符串
+                            $("#txtZhiLing").val(response)
+
+                            弹出层待处理的指令.splice(pos, 1)
+                            btn.parents("fieldset").remove()
+                            if (弹出层待处理的指令.length == 0) {
+                                重叠指令确认弹出层.hide()
+                                允许提交()
+                            }
+                        }
+                    })
+                }
+            })
+
+
+            $("body").on("change", ".rb1", function () {
+                var fieldset = $(this).parents("fieldset")
+                var row_1 = fieldset.find("div").eq(0)
+                var row_2 = fieldset.find("div").eq(1)
+                var btn = $(this).parent().siblings("button")
+                row_1.addClass("no-use-row")
+                row_2.removeClass("no-use-row")
+                btn.removeAttr("disabled")
+            })
+
+
+            $("body").on("change", ".rb2", function () {
+                var fieldset = $(this).parents("fieldset")
+                var row_1 = fieldset.find("div").eq(0)
+                var row_2 = fieldset.find("div").eq(1)
+                var btn = $(this).parent().siblings("button")
+                row_1.removeClass("no-use-row")
+                row_2.addClass("no-use-row")
+                btn.removeAttr("disabled")
+            })
+
+        })
+    </script>
+
+
+
+
+
+    <!-- 重叠指令确认弹出层 -->
+    <script>
+        var 重叠指令确认弹出层
+
+        $(function () {
+            重叠指令确认弹出层 = new bootstrap.Modal(document.getElementById('重叠指令确认弹出层'), {
+                keyboard: false
+            })
+
+            $("#btnUpdate").click(function () {
+                重叠指令确认弹出层.show()
+            })
+        })
+    </script>
+    <div class="modal fade" id="重叠指令确认弹出层" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">处理时间重叠的指令</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div id="div123" class="modal-body" style="height:80vh; overflow:auto;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>

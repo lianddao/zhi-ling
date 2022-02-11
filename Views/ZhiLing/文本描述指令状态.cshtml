@@ -1,0 +1,208 @@
+﻿@using System;
+@using System.Collections.Generic;
+@using System.Diagnostics;
+@using System.Data;
+@using System.Linq;
+@using PlanExecut.Code;
+@using PlanExecut.Web.Areas.PlanOrderManage.Controllers;
+@using PlanExecut.Web.Areas.PlanOrderManage.VO;
+@using PlanExecut.Web.Areas.ZhiLingManage.Services;
+@using System.Web;
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>文本描述指令状态</title>
+    <script src="~/Content/lib/jquery-3.6.0.min.js"></script>
+    <link href="~/Content/lib/font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <link href="~/Content/lib/bootstrap-5.0.2/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="~/Content/lib/bootstrap-5.0.2/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        table {
+            font-size: 13px;
+        }
+
+        .start-time, .end-time {
+            width: 6.5em;
+        }
+
+        .real-value {
+            width: 100%;
+        }
+
+        .edit-head {
+            display: none;
+        }
+
+        .edit-row {
+            display: none;
+        }
+    </style>
+
+</head>
+
+
+@{
+    var service = new ZhiLingService();
+    var 页面数据 = service.提取文本描述指令对象列表();
+}
+
+
+
+
+<body>
+
+
+
+    @* ----------------------------------- 文本描述指令数据表格 ----------------------------------- *@
+    <table class="table" style="table-layout:fixed">
+        <thead>
+            <tr class="data-head">
+                <th>指令内容</th>
+                <th>运行结果 <i class="fa fa-pencil"></i></th>
+                <th style="width:20em">执行日期 <i class="fa fa-pencil"></i></th>
+            </tr>
+            <tr class="edit-head">
+                <th>指令内容</th>
+                <th>运行结果</th>
+                <th style="width:20em">
+                    执行日期
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                foreach (var one in 页面数据) {
+
+                    @*只读状态行*@
+                    <tr class="data-row" data-id="@one.ID">
+                        <td>@one.OrderContent</td>
+                        <td>
+                            @one.OrderContentRealValue
+                        </td>
+                        <td>
+                            @one.OrderStartTime.ToDateString()
+                            <i class="fa fa-exchange" style="color:#aaa; margin:0 1em;"></i>
+                            @one.OrderEndTime.ToDateString()
+                        </td>
+                    </tr>
+
+
+                    @*编辑状态行*@
+                    <tr class="edit-row" data-id="@one.ID">
+                        <td>@one.OrderContent</td>
+                        <td>
+                            <textarea class="real-value" rows="2">@one.OrderContentRealValue</textarea>
+                        </td>
+                        <td>
+                            <input type="text" class="start-time" value="@one.OrderStartTime.ToDateString()" />
+                            <i class="fa fa-exchange" style="color:#aaa; margin:0 1em;"></i>
+                            <input type="text" class="end-time" value="@one.OrderEndTime.ToDateString()" />
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+    <div id="divButton" style="display:none">
+        <button type="button" id="btnSave" class="fa fa-save"> 保存修改</button>
+        <button type="button" id="btnCancel" class="fa fa-ban"> 取消修改</button>
+    </div>
+    @* ----------------------------------- 文本描述指令数据表格 ----------------------------------- *@
+
+
+
+
+
+</body>
+</html>
+
+<script type="text/javascript">
+
+    var 页面数据 = @Html.Raw(页面数据.ToJson())
+
+    $(function () {
+
+        @* ----------------------------------- 修改文本描述指令的执行时间和执行结果 ----------------------------------- *@
+        $("#btnSave").click(function () {
+            $(".edit-row").each(function () {
+                var id = $(this).attr("data-id")
+                var realValue = $(this).find(".real-value").val()
+                var st = $(this).find(".start-time").val()
+                var et = $(this).find(".end-time").val()
+
+                var one = $.grep(页面数据, function (n) {
+                    return n.ID == id
+                })[0]
+
+                one.OrderContentRealValue = realValue
+                one.OrderStartTime = st
+                one.OrderEndTime = et
+            })
+
+            $.ajax({
+                type: "post",
+                contentType: "application/json",
+                url: "/ZhiLingManage/ZhiLing/UpdateWenBenZhiLing",
+                data: JSON.stringify({ datas: 页面数据 }),
+                success: function (response) {
+                    $(".data-row, .data-head").show()
+                    $(".edit-row, .edit-head").hide()
+                    $("#divButton").hide()
+                    location.reload()
+                }
+            })
+        })
+        @* ----------------------------------- 修改文本描述指令的执行时间和执行结果 ----------------------------------- *@
+
+
+        $(".fa-pencil").click(function () {
+            $(".data-row, .data-head").hide()
+            $(".edit-row, .edit-head").show()
+            $("#divButton").show()
+        })
+
+        $("#btnCancel").click(function () {
+            $(".data-row, .data-head").show()
+            $(".edit-row, .edit-head").hide()
+            $("#divButton").hide()
+        })
+
+    })
+</script>
+
+
+
+
+@* ----------------------------------- 日期控件设置 ----------------------------------- *@
+<link rel="stylesheet" href="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.min.css" />
+<script src="~/Content/appjs/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+<script type="text/javascript">
+    $(function () {
+        jQuery.datetimepicker.setLocale('ch')
+
+        jQuery(".start-time").datetimepicker({
+            format: 'Y-m-d',
+            onShow: function (ct, $el) {
+                var endElement = $el.siblings(".end-time")
+                this.setOptions({
+                    maxDate: endElement.val() ? endElement.val() : false
+                })
+            },
+            timepicker: false
+        })
+
+        jQuery(".end-time").datetimepicker({
+            format: 'Y-m-d',
+            onShow: function (ct, $el) {
+                var startElement = $el.siblings(".start-time")
+                this.setOptions({
+                    minDate: startElement.val() ? startElement.val() : false
+                })
+            },
+            timepicker: false
+        })
+
+    })
+</script>
+@* ----------------------------------- 日期控件设置 ----------------------------------- *@
